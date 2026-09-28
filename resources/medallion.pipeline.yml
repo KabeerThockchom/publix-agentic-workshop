@@ -1,0 +1,13 @@
+resources:
+  pipelines:
+    medallion:
+      name: "[${bundle.target}] publix-medallion"
+      catalog: ${var.catalog}
+      schema: medallion
+      serverless: true
+      channel: CURRENT
+      libraries:
+        - file:
+            path: ../src/pipelines/transformations/silver_sales.sql
+        - file:
+            path: ../src/pipelines/transformations/gold_store_item_daily.sql

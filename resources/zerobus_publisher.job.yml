@@ -1,0 +1,17 @@
+resources:
+  jobs:
+    zerobus_publisher:
+      name: "[${bundle.target}] publix-zerobus-publisher"
+      tasks:
+        - task_key: publish
+          spark_python_task:
+            python_file: ../src/zerobus/publisher.py
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "3"
+            dependencies:
+              - databricks-zerobus-ingest-sdk
+      # Zerobus endpoint + service-principal creds are wired at deploy time
+      # (via job env / secret scope). See README "Deploy".

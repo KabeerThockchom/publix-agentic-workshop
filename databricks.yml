@@ -1,0 +1,24 @@
+bundle:
+  name: publix-agentic-workshop
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog for the workshop (FEVM auto-created managed catalog).
+    default: publix_agentic_workshop
+  bronze_schema:
+    description: Schema holding the Zerobus landing tables.
+    default: bronze
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      # Profile added once the FEVM workspace is Active (databricks auth login ... -p publix-workshop)
+      profile: publix-workshop
+    variables:
+      catalog: publix_agentic_workshop
+      bronze_schema: bronze
