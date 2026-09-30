@@ -18,6 +18,7 @@ Take an idea to a governed, deployed result in one day. You build a real-time pi
 - **`app/`** - Store Pulse, the reference "art of the possible" app (FastAPI + React: lakehouse reads, Lakebase writes, Genie).
 - **`PROMPTS.md`** - the Genie Code prompt playbook. **`HANDOFF.md`** - the participant hand-out.
 - **`SETUP_SERVICE_PRINCIPAL.md`** - one-time admin setup for the Zerobus publisher's service principal (participants only need their workspace login).
+- **`FLAGSHIP_PROMPTS.md`** - the "art of the possible" build: StoreSight IQ (real-time labor forecasting) decomposed into 7 Genie Code prompts, one per layer (UC → Zerobus → SDP → 4 ML models → Genie → Lakebase → App Builder).
 
 Placeholders like `<workspace-id>`, `<warehouse-id>`, `<genie-space-id>` are yours to fill in. No real infra IDs in this repo.
 
