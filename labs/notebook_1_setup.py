@@ -193,7 +193,38 @@ print(f"Inserted {len(prices)} price events")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Part 4 - Verify Setup
+# MAGIC ## Part 4 - Grant the Zerobus Publisher (service principal)
+# MAGIC
+# MAGIC The Zerobus publisher in Notebook 3 runs **from a laptop** and authenticates as a shared
+# MAGIC workshop **service principal (SP)** - not as you. The SP can only write to these bronze tables
+# MAGIC if it has been granted access. Run this once, after the tables exist.
+# MAGIC
+# MAGIC **Skip this if you are not doing the Zerobus lab** (Notebook 1's mock data is enough for the rest).
+# MAGIC
+# MAGIC Without this grant, the publisher fails with:
+# MAGIC `401 invalid_authorization_details - User is not authorized to the requested authorizations`.
+# MAGIC
+# MAGIC Your workshop admin creates the SP once (see `SETUP_SERVICE_PRINCIPAL.md`) and gives you its
+# MAGIC **application id**. Paste it below.
+
+# COMMAND ----------
+
+# The application id of the shared workshop Zerobus service principal.
+# Ask your workshop admin for this value (see SETUP_SERVICE_PRINCIPAL.md).
+ZEROBUS_SP = "<zerobus-sp-application-id>"   # e.g. "1b103dc1-cf0a-42ae-94ba-253f9ed2059d"
+
+if ZEROBUS_SP and not ZEROBUS_SP.startswith("<"):
+    spark.sql(f"GRANT USE CATALOG ON CATALOG {CATALOG} TO `{ZEROBUS_SP}`")
+    spark.sql(f"GRANT USE SCHEMA  ON SCHEMA  {CATALOG}.bronze TO `{ZEROBUS_SP}`")
+    spark.sql(f"GRANT SELECT, MODIFY ON SCHEMA {CATALOG}.bronze TO `{ZEROBUS_SP}`")
+    print(f"Granted USE CATALOG + USE SCHEMA + SELECT, MODIFY on {CATALOG}.bronze to {ZEROBUS_SP}")
+else:
+    print("ZEROBUS_SP not set - skipping grant. Set it before running the Zerobus lab (Notebook 3).")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Part 5 - Verify Setup
 
 # COMMAND ----------
 

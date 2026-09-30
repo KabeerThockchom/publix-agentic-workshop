@@ -24,6 +24,11 @@ Optional notebook. If you have a Kafka broker (Docker, Redpanda, or production),
 
 ### Notebook 3 - Zerobus Ingest via Genie Code (`notebook_3_zerobus_genie_code.py`)
 
+**Prereq - grant the service principal.** The publisher runs from your laptop as a shared workshop
+service principal, so it needs write access to the bronze tables first. Run **Notebook 1, Part 4**
+(the grant cell) once, after the tables exist. Skipping it gives a `401 invalid_authorization_details`
+when you run the publisher. SP setup is in `SETUP_SERVICE_PRINCIPAL.md`.
+
 **This is the main Genie Code exercise for ingest.** Open Genie Code (Cmd/Ctrl + I) and run this prompt:
 
 > **🧞 Prompt for Genie Code**

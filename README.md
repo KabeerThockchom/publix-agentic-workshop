@@ -17,6 +17,7 @@ Take an idea to a governed, deployed result in one day. You build a real-time pi
 - **`slides/`** - the Part 1 (data engineering) facilitator deck.
 - **`app/`** - Store Pulse, the reference "art of the possible" app (FastAPI + React: lakehouse reads, Lakebase writes, Genie).
 - **`PROMPTS.md`** - the Genie Code prompt playbook. **`HANDOFF.md`** - the participant hand-out.
+- **`SETUP_SERVICE_PRINCIPAL.md`** - one-time admin setup for the Zerobus publisher's service principal (participants only need their workspace login).
 
 Placeholders like `<workspace-id>`, `<warehouse-id>`, `<genie-space-id>` are yours to fill in. No real infra IDs in this repo.
 
