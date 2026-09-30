@@ -1,0 +1,27 @@
+command: ['python', 'app.py']
+
+env:
+  - name: 'DATABRICKS_WAREHOUSE_ID'
+    value: '<warehouse-id>'
+  - name: 'PUBLIX_CATALOG'
+    value: 'publix_agentic_workshop'
+  - name: 'SERVING_ENDPOINT'
+    value: 'databricks-claude-sonnet-5'
+  # Genie space is provisioned separately - supply the id here when ready.
+  - name: 'GENIE_SPACE_ID'
+    value: '<genie-space-id>'
+
+# Resources are configured on the app object (via `databricks apps update` or the
+# UI), NOT from this file - the deploy does not read `resources` from app.yaml on
+# this workspace. The Lakebase database resource attached to this app is:
+#
+#   resources:
+#     - name: database
+#       database:
+#         instance_name: <lakebase-instance>
+#         database_name: publix_app
+#         permission: CAN_CONNECT_AND_CREATE
+#
+# The runtime injects PGHOST / PGPORT / PGDATABASE (=publix_app) / PGUSER /
+# PGSSLMODE; the Postgres password is a short-lived OAuth credential minted from
+# the endpoint projects/<lakebase-instance>/branches/production/endpoints/primary.

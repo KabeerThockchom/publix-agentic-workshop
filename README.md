@@ -1,12 +1,65 @@
-# Publix Agentic Workshop - Labs
+# Publix Agentic Workshop - End-to-End Developer Experience
 
-Databricks Asset Bundle for the Publix agentic developer workshop.
+Complete Databricks agentic workshop delivered as an end-to-end developer experience: from data ingestion (Zerobus) through medallion architecture (Spark Declarative Pipelines) to shipped AI agents and applications.
+
+**Contents:**
+- **Notebooks** - 6 hands-on labs covering streaming, medallion architecture, Genie agents, and app deployment
+- **Slides** - 15-slide facilitator deck (HTML + React source) covering architecture, use cases, and the agentic workflow (Describe → Generate → Review → Deploy)
+- **Reference App** - Publix Store Pulse (FastAPI + React) - a complete example showing lakehouse reads, OLTP writes to Lakebase, and Genie integration
+
 Built and tested in a FEVM Azure Serverless workspace (`eastus`), profile `publix-workshop`.
 
-**The spine: Spark Declarative Pipelines medallion.** Everyone runs Notebook 4 and lands in the same gold table.
-Then we query it together (Notebook 5) and ship an app (Notebook 6).
+**The spine:** Spark Declarative Pipelines medallion. All participants build the same gold layer, then query it via Genie agents, and finally ship a production app.
 
-Vault home: `Obsidian Vault/60-69 Projects/72 Publix Agentic Workshop/` (plan + runbook).
+## Workshop Structure
+
+The workshop follows an agentic pattern: **Describe → Generate → Review → Deploy**.
+
+1. **Describe** (Slide 5): Set requirements and constraints in natural language
+2. **Generate** (Notebook 3): Use Genie Code to auto-generate data pipelines and ingest logic
+3. **Review** (Notebook 4-5): Build medallion architecture and ship a Genie agent
+4. **Deploy** (Notebook 6, App): Ship a production web app accessing the lakehouse
+
+## Slides (facilitator-deck)
+
+**Location:** `slides/`
+
+15-slide facilitator deck (HTML + React source) covering:
+- **Slide 1-2:** Title, Store Pulse demo (art of the possible)
+- **Slide 3-4:** 5-layer architecture, real-world use cases
+- **Slide 5:** The agentic workflow (Describe → Generate → Review → Deploy)
+- **Slide 6-13:** Module intros (Zerobus, Medallion, Genie, Apps)
+- **Slide 14-15:** Take-homes, next steps
+
+**Files:**
+- `facilitator-deck.html` - Standalone presentation (Reveal.js), ready to open in any browser
+- `publix-agentic-workshop-facilitator-source.tsx` - React source (for open-slide framework)
+- `MANIFEST.md` - Full slide inventory and design specs
+- `EXPORT_INSTRUCTIONS.md` - How to export to PDF or PPTX
+
+**Design:** Co-branded Publix + Databricks (Navy, Lava, Publix Green, DM Sans typography)
+
+## Reference App (Store Pulse)
+
+**Location:** `app/`
+
+A complete Databricks App (FastAPI + React) demonstrating:
+- **Frontend** (React + Vite) - Store performance dashboard, price watch, action panel, Ask Genie
+- **Backend** (FastAPI + Lakebase) - SQL warehouse reads, Lakebase OLTP writes, Genie API integration
+- **Deployment** - Databricks Apps + Lakebase database resource
+
+**Structure:**
+```
+app/
+  app.py               # FastAPI entry point
+  app.yaml             # Databricks App config (warehouse ID, Genie space ID, Lakebase instance)
+  requirements.txt     # Python dependencies
+  server/              # Backend: config, warehouse queries, Lakebase, Genie API
+  frontend/            # React app: components, API client, Tailwind styles
+  README.md            # Deployment and architecture guide
+```
+
+This is a *reference implementation* — copy, customize, and ship on your own workspace.
 
 ## Hand-Out Notebooks (Publix participants run these)
 
@@ -125,10 +178,51 @@ databricks sql --warehouse-id <warehouse-id> \
 # 6. Notebook 6 - Build app (deploy UI via App Builder or CLI)
 ```
 
+## Repository Structure
+
+```
+publix-agentic-workshop-public/
+  README.md                              consolidated overview (this file)
+  HANDOFF.md                             participant hand-out summary
+  PROMPTS.md                             prompt library for Genie Code
+  databricks.yml                         DAB bundle config
+  
+  labs/                                  participant notebooks
+    notebook_1_setup.py                  setup + mock data
+    notebook_2_kafka_producer.py         local Kafka producer (optional)
+    notebook_3_zerobus_genie_code.py    Genie Code guided ingest
+    notebook_4_sdp_medallion.py         medallion pipeline (SDP)
+    notebook_5_genie_spaces.py          Genie agents + Genie One
+    notebook_6_build_ship_app.py        app build + deployment
+  
+  resources/                             DAB-managed resources
+    medallion.pipeline.yml              SDP pipeline definition
+    zerobus_publisher.job.yml           Zerobus publisher job
+  
+  src/                                   source code (pipelines, publishers)
+    zerobus/publisher.py                reference Zerobus publisher
+  
+  slides/                                facilitator deck + design specs
+    facilitator-deck.html               standalone presentation (ready to open)
+    publix-agentic-workshop-facilitator-source.tsx  React source
+    MANIFEST.md                         slide inventory + design system
+    EXPORT_INSTRUCTIONS.md              export to PDF/PPTX
+    README.md                           slides guide
+  
+  app/                                   reference Databricks App
+    app.py                              FastAPI entry point
+    app.yaml                            App config (warehouse, Genie, Lakebase)
+    requirements.txt                    Python deps
+    server/                             backend logic
+    frontend/                           React UI + Tailwind
+    README.md                           app deployment guide
+```
+
 ## Notes
 
-- Zerobus endpoint format: `https://<workspace-id>.zerobus.eastus.azuredatabricks.net`.
-- Serverless only; Unity Catalog required.
-- Bronze tables use Change Data Feed (CDF) so SDP can stream incremental appends.
-- All participant notebooks are idempotent (safe to re-run).
-- DAB resources (pipeline, jobs, Genie spaces) are version-controlled; deploy once, iterate.
+- **Zerobus endpoint:** `https://<workspace-id>.zerobus.eastus.azuredatabricks.net`
+- **Serverless only** with Unity Catalog required
+- **Bronze tables** use Change Data Feed (CDF) so SDP can stream incremental appends
+- **All participant notebooks** are idempotent (safe to re-run)
+- **DAB resources** (pipeline, jobs, Genie spaces) are version-controlled; deploy once, iterate
+- **Placeholders:** Real infrastructure IDs (workspace ID, warehouse ID, Genie space ID, Lakebase instance, service principal IDs) have been replaced with `<placeholder>` for safety; update these when deploying to your workspace

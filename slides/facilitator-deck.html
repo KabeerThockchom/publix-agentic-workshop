@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publix Agentic Workshop - Facilitator Deck</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/notes/notes.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+    <style>
+        :root {
+            --navy: #0B2026;
+            --lava: #FF3621;
+            --publix-green: #4c8c2b;
+            --text: #ffffff;
+            --text-soft: #d4d9df;
+            --muted: #7a8a96;
+            --surface: #0f1f27;
+            --surface-hi: #1a2f37;
+            --border: rgba(255, 255, 255, 0.12);
+            --success: #4cc9a3;
+        }
+
+        * {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: var(--navy) !important;
+        }
+
+        .reveal {
+            background: var(--navy);
+        }
+
+        .reveal h1, .reveal h2, .reveal h3 {
+            color: var(--text);
+            text-transform: none;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+        }
+
+        .reveal p, .reveal li {
+            color: var(--text-soft);
+        }
+
+        .reveal section {
+            padding: 0 !important;
+        }
+
+        .slide-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 80px 120px;
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy) 70%, rgba(76, 140, 43, 0.1) 100%);
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--lava);
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 120px;
+            line-height: 1;
+            margin: 0;
+            color: var(--text);
+        }
+
+        .subtitle {
+            font-size: 28px;
+            margin-top: 24px;
+            color: var(--text-soft);
+            line-height: 1.4;
+            max-width: 1200px;
+        }
+
+        .co-logo {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .co-logo .publix {
+            color: var(--publix-green);
+        }
+
+        .co-logo .databricks {
+            color: var(--lava);
+        }
+
+        .divider {
+            width: 2px;
+            height: 40px;
+            background: var(--border);
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 40px;
+            flex: 1;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 40px;
+            flex: 1;
+        }
+
+        .grid-5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            margin-top: 40px;
+            flex: 1;
+        }
+
+        .card {
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--surface-hi);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card.accent-border {
+            border: 2px solid var(--lava);
+            background: rgba(76, 140, 43, 0.15);
+        }
+
+        .card-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            color: var(--lava);
+            font-weight: 700;
+        }
+
+        .card-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .card-desc {
+            font-size: 18px;
+            color: var(--text-soft);
+            line-height: 1.3;
+        }
+
+        .card-icon {
+            font-size: 48px;
+            margin-top: auto;
+        }
+
+        .reveal .slide-number {
+            color: var(--muted);
+        }
+
+        .reveal a {
+            color: var(--lava);
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- SLIDE 1: Title / Cover -->
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="co-logo" style="margin-bottom: 80px;">
+                            <span class="publix">PUBLIX</span>
+                            <div class="divider"></div>
+                            <span class="databricks">DATABRICKS</span>
+                        </div>
+                        <h1 class="title">Agentic End-to-End<br><span style="color: var(--lava);">Developer Experience</span></h1>
+                        <p class="subtitle">A full-day workshop: from spec to production with Databricks + Claude</p>
+                    </div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--muted); display: flex; gap: 24px;">
+                        <span>Full-day workshop</span>
+                        <span>September 29, 2026</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 2: The Art of the Possible -->
+            <section>
+                <div class="slide-content">
+                    <div class="header">
+                        <div class="eyebrow">The Art of the Possible</div>
+                        <h2 class="title">Store Pulse</h2>
+                        <p class="subtitle">Real-time Publix store command center — live sales, price feeds, refunds, and what-if actions powered by agentic AI.</p>
+                    </div>
+                    <div style="flex: 1; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(135deg, var(--surface), var(--surface-hi)); padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 24px;">
+                        <div style="font-size: 48px; font-weight: 600; color: var(--lava);">📊 Live Demo</div>
+                        <div style="font-size: 24px; color: var(--text-soft); text-align: center; max-width: 800px;">publix-store-pulse-<workspace-id>.17.azure.databricksapps.com</div>
+                        <div style="font-size: 20px; color: var(--muted); margin-top: 20px; text-align: center;">Real-time orders · Dynamic pricing · Agentic refund actions</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 3: Architecture -->
+            <section>
+                <div class="slide-content">
+                    <div class="header">
+                        <div class="eyebrow">Here's Everything It Took</div>
+                        <h2 class="title">5-Layer Architecture</h2>
+                        <p class="subtitle">From raw data to agentic decisions.</p>
+                    </div>
+                    <div class="grid-5">
+                        <div class="card accent-border">
+                            <div style="font-size: 24px; font-weight: 700; color: var(--lava);">Ingest</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.2;">Kafka, CDC,<br>APIs</div>
+                        </div>
+                        <div class="card accent-border">
+                            <div style="font-size: 24px; font-weight: 700; color: var(--lava);">Storage &<br>Governance</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.2;">UC, Iceberg,<br>Domains</div>
+                        </div>
+                        <div class="card accent-border">
+                            <div style="font-size: 24px; font-weight: 700; color: var(--lava);">Transactional &<br>Analytical</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.2;">Lakehouse,<br>Lakebase</div>
+                        </div>
+                        <div class="card accent-border">
+                            <div style="font-size: 24px; font-weight: 700; color: var(--lava);">Semantic</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.2;">Metric Views,<br>Ontology</div>
+                        </div>
+                        <div class="card accent-border">
+                            <div style="font-size: 24px; font-weight: 700; color: var(--lava);">ML/AI</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.2;">Genie, Agents,<br>Apps</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Use Cases -->
+            <section>
+                <div class="slide-content">
+                    <div class="header">
+                        <div class="eyebrow">Three Anchor Use Cases</div>
+                        <h2 class="title">What We Build Today</h2>
+                    </div>
+                    <div class="grid-3">
+                        <div class="card">
+                            <div class="card-num">01</div>
+                            <div style="font-size: 28px; font-weight: 600; color: var(--text);">Real-Time Sales</div>
+                            <div class="card-desc">Kafka → Ingest → Semantic → Dashboard</div>
+                            <div class="card-icon">📈</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-num">02</div>
+                            <div style="font-size: 28px; font-weight: 600; color: var(--text);">Dynamic Item Price</div>
+                            <div class="card-desc">Price feed → SDP → Lakebase → UI</div>
+                            <div class="card-icon">💰</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-num">03</div>
+                            <div style="font-size: 28px; font-weight: 600; color: var(--text);">Reference Data</div>
+                            <div class="card-desc">MySQL via Lakeflow Connect → UC Tables</div>
+                            <div class="card-icon">📋</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Agentic Workflow -->
+            <section>
+                <div class="slide-content">
+                    <div class="header">
+                        <div class="eyebrow">How Agentic Development Works</div>
+                        <h2 class="title">Describe → Generate → Review → Deploy</h2>
+                        <p class="subtitle">Spec-driven with Claude Code + Genie in a repo, not scratch notebooks.</p>
+                    </div>
+                    <div class="grid-4">
+                        <div class="card" style="border: 2px solid var(--lava); background: rgba(255, 54, 33, 0.15);">
+                            <div style="font-size: 56px;">📝</div>
+                            <div style="font-size: 24px; font-weight: 600; color: var(--text);">Describe</div>
+                        </div>
+                        <div class="card" style="border: 2px solid var(--publix-green); background: rgba(76, 140, 43, 0.15);">
+                            <div style="font-size: 56px;">⚡</div>
+                            <div style="font-size: 24px; font-weight: 600; color: var(--text);">Generate</div>
+                        </div>
+                        <div class="card" style="border: 2px solid var(--success); background: rgba(76, 204, 163, 0.15);">
+                            <div style="font-size: 56px;">✓</div>
+                            <div style="font-size: 24px; font-weight: 600; color: var(--text);">Review</div>
+                        </div>
+                        <div class="card" style="border: 2px solid var(--lava); background: rgba(255, 54, 33, 0.15);">
+                            <div style="font-size: 56px;">🚀</div>
+                            <div style="font-size: 24px; font-weight: 600; color: var(--text);">Deploy</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDES 6-13: Module Intros -->
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow">Module 1</div>
+                        <h2 class="title">Kickoff</h2>
+                    </div>
+                    <p class="subtitle">Workshop agenda, team intros, and the demo you'll build together today.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow" style="color: var(--publix-green);">Module 2</div>
+                        <h2 class="title">Ingest</h2>
+                    </div>
+                    <p class="subtitle">Lakeflow Connect + Spark Declarative Pipelines: from Kafka and APIs to Delta.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow">Module 3</div>
+                        <h2 class="title">Storage &<br>Governance</h2>
+                    </div>
+                    <p class="subtitle">Unity Catalog, Iceberg, Domains, auto-classification, ABAC, and lineage.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow" style="color: var(--publix-green);">Module 4</div>
+                        <h2 class="title">Transactional &<br>Analytical Layer</h2>
+                    </div>
+                    <p class="subtitle">Real-time Lakehouse, Lakebase for transactional queries, LTAP.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow">Module 5</div>
+                        <h2 class="title">Semantic Layer</h2>
+                    </div>
+                    <p class="subtitle">Metric Views, Domains, Pages, Certification, Genie Ontology + Agents.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow" style="color: var(--publix-green);">Module 6</div>
+                        <h2 class="title">Agentic Dev<br>Experience</h2>
+                    </div>
+                    <p class="subtitle">Spec-driven ETL, AI dashboards, Genie Code, Apps, and App Builder.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow">Module 7</div>
+                        <h2 class="title">From Spec to<br>Production</h2>
+                    </div>
+                    <p class="subtitle">PR review gates, Databricks Asset Bundles, deploy & schedule workflows.</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="slide-content">
+                    <div>
+                        <div class="eyebrow" style="color: var(--success);">Module 8</div>
+                        <h2 class="title">Wrap-Up</h2>
+                    </div>
+                    <p class="subtitle">Recap the journey, take-homes, and resources for continuing your build.</p>
+                </div>
+            </section>
+
+            <!-- SLIDE 14: Take-Home -->
+            <section>
+                <div class="slide-content">
+                    <div class="header">
+                        <div class="eyebrow">You Leave With</div>
+                        <h2 class="title">Build Studio</h2>
+                        <p class="subtitle">Idea → Prompts → Pipeline + Lakebase + Genie + App in one workflow.</p>
+                    </div>
+                    <div class="grid-3" style="grid-template-columns: 1fr 1fr; gap: 40px;">
+                        <div class="card">
+                            <div style="font-size: 28px; font-weight: 600; color: var(--lava);">Public Notebooks Repo</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.4;">Fully annotated end-to-end pipeline, with inline agent instructions for each module.</div>
+                        </div>
+                        <div class="card">
+                            <div style="font-size: 28px; font-weight: 600; color: var(--lava);">Prompts Playbook</div>
+                            <div style="font-size: 18px; color: var(--text-soft); line-height: 1.4;">Copy-paste prompts for each layer: ingest, governance, semantic, agents, deploy.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 15: Next Steps -->
+            <section>
+                <div class="slide-content">
+                    <div class="header">
+                        <div class="eyebrow">What's Next</div>
+                        <h2 class="title">Your Agentic Journey<br>Starts Now</h2>
+                        <p class="subtitle">Take the patterns, the code, and the confidence—build something bigger than a demo.</p>
+                    </div>
+                    <div class="grid-3">
+                        <div class="card">
+                            <div style="font-size: 20px; font-weight: 700; color: var(--lava);">Extend</div>
+                            <div style="font-size: 16px; color: var(--text-soft);">Add your own data sources and domains</div>
+                        </div>
+                        <div class="card">
+                            <div style="font-size: 20px; font-weight: 700; color: var(--lava);">Scale</div>
+                            <div style="font-size: 16px; color: var(--text-soft);">Run in production with DABs and Jobs</div>
+                        </div>
+                        <div class="card">
+                            <div style="font-size: 20px; font-weight: 700; color: var(--lava);">Ship</div>
+                            <div style="font-size: 16px; color: var(--text-soft);">Deploy apps and agents to stakeholders</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script>
+        Reveal.initialize({
+            hash: true,
+            width: 1920,
+            height: 1080,
+            margin: 0,
+            minScale: 1,
+            maxScale: 1,
+            transition: 'fade',
+            controls: true,
+            progress: true,
+            center: false,
+            showNotes: false,
+            plugins: []
+        });
+    </script>
+</body>
+</html>
