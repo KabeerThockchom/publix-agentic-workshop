@@ -3,7 +3,7 @@
 # MAGIC # Notebook 6 - Build and Ship an App
 # MAGIC ### Agentic Development on Databricks - Publix Workshop
 # MAGIC
-# MAGIC **Goal:** Deploy a governed Databricks App that queries the shared gold table. ~45 minutes.
+# MAGIC **Goal:** Deploy a governed Databricks App that queries your gold table in your catalog. ~45 minutes.
 # MAGIC
 # MAGIC You have two paths: **Path A** uses App Builder (simpler, UI-driven), **Path B** uses Databricks CLI +
 # MAGIC manual development (more control, local dev loop). Both deploy via Databricks Asset Bundles.
@@ -14,10 +14,26 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Your Catalog
+# MAGIC
+# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
+
+# COMMAND ----------
+
+dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
+name = dbutils.widgets.get("my_name")
+assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
+CATALOG = f"publix_agentic_{name}"
+print(f"Your catalog: {CATALOG}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## What you will build
 # MAGIC
-# MAGIC A **Store & Item Insights** Databricks App that queries the shared gold table
-# MAGIC (`publix_agentic_workshop.medallion.gold_store_item_daily`). Show top-selling items by store,
+# MAGIC A **Store & Item Insights** Databricks App that queries your gold table
+# MAGIC (your own `publix_agentic_<yourname>.medallion.gold_store_item_daily`). Show top-selling items by store,
 # MAGIC let users filter by store and date range, all SQL-backed and governed.
 # MAGIC
 # MAGIC **Two paths to the same result:**
@@ -37,12 +53,12 @@
 # MAGIC 2. **Name it** `store-item-insights`
 # MAGIC 3. **Choose Mode:** Select "snapshot" (static query) or "interactive" (with parameters)
 # MAGIC 4. **Wire to warehouse** - Select `publix-workshop-wh` as your SQL warehouse
-# MAGIC 5. **Add your query:**
+# MAGIC 5. **Add your query** (replace `publix_agentic_workshop` with your own `publix_agentic_<yourname>`):
 # MAGIC    ```sql
 # MAGIC    SELECT
 # MAGIC      store_number, item_id, item_name, item_category,
 # MAGIC      sales_date, units_sold, revenue, line_items
-# MAGIC    FROM publix_agentic_workshop.medallion.gold_store_item_daily
+# MAGIC    FROM publix_agentic_<yourname>.medallion.gold_store_item_daily
 # MAGIC    WHERE sales_date >= CURRENT_DATE - 30
 # MAGIC    ORDER BY revenue DESC
 # MAGIC    LIMIT 100
@@ -90,8 +106,8 @@
 # MAGIC                  warehouse_id=os.getenv("WAREHOUSE_ID")) as conn:
 # MAGIC        query = """
 # MAGIC        SELECT store_number, item_id, item_name, revenue, units_sold
-# MAGIC        FROM publix_agentic_workshop.medallion.gold_store_item_daily
-# MAGIC        """
+# MAGIC        FROM publix_agentic_<yourname>.medallion.gold_store_item_daily
+# MAGIC        """  # Replace publix_agentic_workshop with your own publix_agentic_<yourname>
 # MAGIC        if store_id:
 # MAGIC            query += f" WHERE store_number = {store_id}"
 # MAGIC        query += " ORDER BY revenue DESC LIMIT " + str(limit)

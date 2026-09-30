@@ -3,15 +3,32 @@
 # MAGIC # Notebook 4 - Medallion Pipeline with Spark Declarative Pipelines
 # MAGIC ### Agentic Development on Databricks - Publix Workshop
 # MAGIC
-# MAGIC **Goal:** This is the main hands-on exercise. Build silver + gold layers that everyone lands in the same place.
+# MAGIC **Goal:** This is the main hands-on exercise. Build silver + gold layers in your own catalog.
 # MAGIC ~30 minutes.
 # MAGIC
 # MAGIC You will build the silver and gold layers of a medallion architecture using Spark Declarative
 # MAGIC Pipelines (SDP). SDP is serverless streaming orchestration - write SQL, Databricks runs it with
 # MAGIC managed checkpointing and fault tolerance.
 # MAGIC
-# MAGIC **Shared exercise:** By the end of this notebook, everyone in the room will have populated the same gold table:
-# MAGIC `publix_agentic_workshop.medallion.gold_store_item_daily`. We will query it together in Notebook 5.
+# MAGIC **Per-user exercise:** By the end of this notebook, you will have built a complete medallion pipeline
+# MAGIC in your own catalog: `publix_agentic_<yourname>.medallion.gold_store_item_daily`. Everyone builds
+# MAGIC the same structure, each in their own space - compare results with your neighbor at the end!
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Your Catalog
+# MAGIC
+# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
+
+# COMMAND ----------
+
+dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
+name = dbutils.widgets.get("my_name")
+assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
+CATALOG = f"publix_agentic_{name}"
+print(f"Your catalog: {CATALOG}")
 
 # COMMAND ----------
 
@@ -45,12 +62,13 @@
 # MAGIC
 # MAGIC > **🧞 Prompt for Genie Code**
 # MAGIC > ```
-# MAGIC > Build a streaming table called silver_sales in publix_agentic_workshop.medallion
+# MAGIC > Build a streaming table called silver_sales in publix_agentic_<yourname>.medallion (use YOUR catalog)
 # MAGIC > that reads from bronze.sales_events and:
-# MAGIC > - Casts event_timestamp to TIMESTAMP
+# MAGIC > - Casts event_timestamp STRING -> TIMESTAMP (bronze is raw; silver casts)
 # MAGIC > - Casts quantity_sold to INT
-# MAGIC > - Casts unit_price to DECIMAL(10, 2)
-# MAGIC > - Casts total_amount to DECIMAL(12, 2)
+# MAGIC > - Casts unit_price DOUBLE -> DECIMAL(10, 2)
+# MAGIC > - Casts total_amount DOUBLE -> DECIMAL(12, 2)
+# MAGIC > - Keeps item_id as INT (never STRING)
 # MAGIC > - Includes a constraint that drops rows where event_id or item_id is null
 # MAGIC > - Uses liquid clustering on store_number and item_id
 # MAGIC > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
@@ -61,9 +79,9 @@
 
 # COMMAND ----------
 
-# reference solution - actual silver layer
-spark.sql("""
-CREATE OR REFRESH STREAMING TABLE silver_sales
+# reference solution - actual silver layer (uses per-user CATALOG)
+spark.sql(f"""
+CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_sales
   (CONSTRAINT valid_event EXPECT (event_id IS NOT NULL AND item_id IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned, typed Publix sales events."
   CLUSTER BY (store_number, item_id)
@@ -80,7 +98,7 @@ SELECT
   CAST(total_amount AS DECIMAL(12, 2))  AS total_amount,
   cashier_id,
   transaction_id
-FROM STREAM(bronze.sales_events)
+FROM STREAM({CATALOG}.bronze.sales_events)
 """)
 
 # COMMAND ----------
@@ -105,9 +123,9 @@ FROM STREAM(bronze.sales_events)
 
 # COMMAND ----------
 
-# reference solution - actual gold layer
-spark.sql("""
-CREATE OR REFRESH MATERIALIZED VIEW gold_store_item_daily
+# reference solution - actual gold layer (uses per-user CATALOG)
+spark.sql(f"""
+CREATE OR REFRESH MATERIALIZED VIEW {CATALOG}.medallion.gold_store_item_daily
   COMMENT "Daily units and revenue by store and item."
 AS
 SELECT
@@ -119,7 +137,7 @@ SELECT
   SUM(quantity_sold)      AS units_sold,
   SUM(total_amount)       AS revenue,
   COUNT(*)                AS line_items
-FROM silver_sales
+FROM {CATALOG}.medallion.silver_sales
 GROUP BY store_number, item_id, item_name, item_category, CAST(event_ts AS DATE)
 """)
 
@@ -184,29 +202,29 @@ resources:
 
 # check row counts at each layer
 print("=== Medallion pipeline row counts ===")
-spark.sql("SELECT COUNT(*) as bronze_count FROM publix_agentic_workshop.bronze.sales_events").show(truncate=False)
-spark.sql("SELECT COUNT(*) as silver_count FROM publix_agentic_workshop.medallion.silver_sales").show(truncate=False)
-spark.sql("SELECT COUNT(*) as gold_count FROM publix_agentic_workshop.medallion.gold_store_item_daily").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as bronze_count FROM {CATALOG}.bronze.sales_events").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as silver_count FROM {CATALOG}.medallion.silver_sales").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as gold_count FROM {CATALOG}.medallion.gold_store_item_daily").show(truncate=False)
 
 # COMMAND ----------
 
 # sample data: see what silver_sales looks like
-spark.sql("""
+spark.sql(f"""
 SELECT
   event_id, store_number, event_ts, item_id, item_name,
   quantity_sold, unit_price, total_amount
-FROM publix_agentic_workshop.medallion.silver_sales
+FROM {CATALOG}.medallion.silver_sales
 LIMIT 5
 """).display()
 
 # COMMAND ----------
 
 # sample data: daily aggregation (gold layer)
-spark.sql("""
+spark.sql(f"""
 SELECT
   store_number, item_id, item_name, sales_date,
   units_sold, revenue, line_items
-FROM publix_agentic_workshop.medallion.gold_store_item_daily
+FROM {CATALOG}.medallion.gold_store_item_daily
 ORDER BY sales_date DESC, revenue DESC
 LIMIT 10
 """).display()
@@ -214,15 +232,16 @@ LIMIT 10
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Shared Exercise Checkpoint
+# MAGIC ## Checkpoint: Compare with Your Neighbor
 # MAGIC
-# MAGIC Confirm your row counts roughly match your neighbor's. If gold has 0 rows, ask an instructor.
+# MAGIC Each of you built the same pipeline structure in your own catalog. Confirm your row counts
+# MAGIC roughly match your neighbor's. If gold has 0 rows, ask an instructor.
 
 # COMMAND ----------
 
 # Quick sanity check
-gold_count = spark.sql("SELECT COUNT(*) as cnt FROM publix_agentic_workshop.medallion.gold_store_item_daily").collect()[0]["cnt"]
-silver_count = spark.sql("SELECT COUNT(*) as cnt FROM publix_agentic_workshop.medallion.silver_sales").collect()[0]["cnt"]
+gold_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.gold_store_item_daily").collect()[0]["cnt"]
+silver_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.silver_sales").collect()[0]["cnt"]
 
 print(f"Your pipeline status:")
 print(f"  Silver rows: {silver_count}")

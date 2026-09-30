@@ -61,18 +61,19 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 
 ### Notebook 4 - Medallion Pipeline (SDP) (`notebook_4_sdp_medallion.py`)
 
-**This is the main shared exercise.** Everyone builds it and lands in the same gold table.
+**This is the main hands-on exercise.** Everyone builds the same pipeline structure, each in their own catalog.
 
-**For the silver layer**, use this prompt:
+**For the silver layer**, use this prompt (replace `publix_agentic_workshop` with your own `publix_agentic_<yourname>`):
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Build a streaming table called silver_sales in publix_agentic_workshop.medallion
+> Build a streaming table called silver_sales in publix_agentic_<yourname>.medallion (use YOUR catalog)
 > that reads from bronze.sales_events and:
-> - Casts event_timestamp to TIMESTAMP
+> - Casts event_timestamp STRING -> TIMESTAMP (bronze lands raw; silver casts)
 > - Casts quantity_sold to INT
-> - Casts unit_price to DECIMAL(10, 2)
-> - Casts total_amount to DECIMAL(12, 2)
+> - Casts unit_price DOUBLE -> DECIMAL(10, 2)
+> - Casts total_amount DOUBLE -> DECIMAL(12, 2)
+> - Keeps item_id as INT (never STRING)
 > - Includes a constraint that drops rows where event_id or item_id is null
 > - Uses liquid clustering on store_number and item_id
 > Write it as a CREATE OR REFRESH STREAMING TABLE statement.

@@ -5,10 +5,10 @@ Everything here is built with **Genie Code**: describe what you want, review the
 
 ## Hand-out notebooks (run in order)
 
-1. `labs/notebook_1_setup.py` - create catalogs, schemas, tables + mock data (run this first, on your side).
+1. `labs/notebook_1_setup.py` - create your own catalog, schemas, tables + mock data (run this first, on your side).
 2. `labs/notebook_2_kafka_producer.py` - a local Kafka producer, run on your laptop (optional; Zerobus is the no-Kafka path).
 3. `labs/notebook_3_zerobus_genie_code.py` - real-time ingest built with Genie Code.
-4. `labs/notebook_4_sdp_medallion.py` - bronze -> silver -> gold with Spark Declarative Pipelines (everyone lands in the same shared gold table).
+4. `labs/notebook_4_sdp_medallion.py` - bronze -> silver -> gold with Spark Declarative Pipelines (each of you builds the same pipeline structure, each in your own catalog).
 5. `labs/notebook_5_genie_spaces.py` - metric views + a Genie space/agent (created programmatically via the API).
 6. `labs/notebook_6_build_ship_app.py` - build + ship a Databricks App (App Builder or CLI).
 

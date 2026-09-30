@@ -15,6 +15,22 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Your Catalog
+# MAGIC
+# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
+
+# COMMAND ----------
+
+dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
+name = dbutils.widgets.get("my_name")
+assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
+CATALOG = f"publix_agentic_{name}"
+print(f"Your catalog: {CATALOG}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Configuration
 # MAGIC
 # MAGIC Edit the cell below to point at your Kafka broker. Three options:
@@ -48,7 +64,8 @@ KAFKA_TOPIC_PRICES = "publix-price-updates"
 DURATION_SECONDS = 60  # How long to produce events
 
 # Databricks workspace details (for downstream consumption)
-WORKSPACE_CATALOG = "publix_agentic_workshop"
+# Derives from your my_name widget set above
+WORKSPACE_CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
 
 print(f"Kafka broker: {KAFKA_BOOTSTRAP_SERVERS}")
 print(f"Topics: {KAFKA_TOPIC_SALES}, {KAFKA_TOPIC_PRICES}")

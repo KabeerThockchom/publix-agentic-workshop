@@ -6,7 +6,7 @@ include:
 
 variables:
   catalog:
-    description: Unity Catalog for the workshop (FEVM auto-created managed catalog).
+    description: Unity Catalog for the workshop. Each participant should override this to their own publix_agentic_<yourname> (e.g., publix_agentic_sai).
     default: publix_agentic_workshop
   bronze_schema:
     description: Schema holding the Zerobus landing tables.

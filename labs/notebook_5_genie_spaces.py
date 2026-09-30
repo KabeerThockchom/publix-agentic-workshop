@@ -5,7 +5,7 @@
 # MAGIC
 # MAGIC **Goal:** Build a production Genie Agent on your gold-layer data so business users can ask questions in plain English. ~20 minutes.
 # MAGIC
-# MAGIC You now have `publix_agentic_workshop.medallion.gold_store_item_daily` (from Notebook 4). This notebook makes it self-serve: you will create a Genie space, write instructions, add example questions, test, and enable Genie One routing. Anyone at Publix can then ask "What drove revenue last week?" and get an answer.
+# MAGIC You now have your own `publix_agentic_<yourname>.medallion.gold_store_item_daily` (from Notebook 4). This notebook makes it self-serve: you will create a Genie space, write instructions, add example questions, test, and enable Genie One routing. Your team can then ask "What drove revenue last week?" and get an answer.
 
 # COMMAND ----------
 
@@ -30,23 +30,39 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Your Catalog
+# MAGIC
+# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
+
+# COMMAND ----------
+
+dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
+name = dbutils.widgets.get("my_name")
+assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
+CATALOG = f"publix_agentic_{name}"
+print(f"Your catalog: {CATALOG}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Confirm Your Gold Table
 # MAGIC
 # MAGIC Your data is ready. Verify it exists and has recent data:
 
 # COMMAND ----------
 
-spark.sql("""
+spark.sql(f"""
 SELECT count(*) as row_count,
        min(sales_date) as oldest_date,
        max(sales_date) as newest_date
-FROM publix_agentic_workshop.medallion.gold_store_item_daily
+FROM {CATALOG}.medallion.gold_store_item_daily
 """).display()
 
 # COMMAND ----------
 
-spark.sql("""
-SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
+spark.sql(f"""
+SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 """).display()
 
 # COMMAND ----------
@@ -73,7 +89,7 @@ SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
 # MAGIC **Path 2: Genie UI (quick manual alternative)**
 # MAGIC
 # MAGIC For a fast one-off, click **Genie** (sidebar) -> **New Space**, name it `Store & Item Sales Agent`,
-# MAGIC pick warehouse `publix-workshop-wh`, add table `publix_agentic_workshop.medallion.gold_store_item_daily`,
+# MAGIC pick warehouse `publix-workshop-wh`, add table `publix_agentic_<yourname>.medallion.gold_store_item_daily` (use YOUR catalog),
 # MAGIC and **Save**. Good for exploring; use Path 1 for anything you want to ship and reproduce.
 
 # COMMAND ----------
@@ -88,7 +104,7 @@ SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
 # MAGIC > I'm building a Genie Agent for Publix store operations analysts.
 # MAGIC > They will ask about daily store and item sales performance.
 # MAGIC >
-# MAGIC > Table: publix_agentic_workshop.medallion.gold_store_item_daily
+# MAGIC > Table: publix_agentic_<yourname>.medallion.gold_store_item_daily (use YOUR catalog)
 # MAGIC > Columns: store_number, item_id, item_name, item_category,
 # MAGIC >          sales_date, units_sold, revenue, line_items
 # MAGIC >
@@ -116,7 +132,7 @@ SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
 # MAGIC > ```
 # MAGIC > Generate 3 certified example questions + exact SQL for a Publix store sales Genie Agent.
 # MAGIC >
-# MAGIC > Table: publix_agentic_workshop.medallion.gold_store_item_daily
+# MAGIC > Table: publix_agentic_<yourname>.medallion.gold_store_item_daily (use YOUR catalog)
 # MAGIC >
 # MAGIC > Include:
 # MAGIC > 1. Top items by revenue last week
@@ -155,10 +171,11 @@ SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
 # MAGIC Attach a metric view to track agent quality and usage. Metric views are defined via a YAML spec inside a UC view:
 # MAGIC
 # MAGIC ```sql
-# MAGIC CREATE OR REPLACE VIEW publix_agentic_workshop.medallion.store_performance_metric_view
+# MAGIC -- Replace publix_agentic_workshop with your own publix_agentic_<yourname>
+# MAGIC CREATE OR REPLACE VIEW publix_agentic_<yourname>.medallion.store_performance_metric_view
 # MAGIC   WITH METRICS LANGUAGE YAML AS $$
 # MAGIC version: 1.0
-# MAGIC source: publix_agentic_workshop.medallion.gold_store_item_daily
+# MAGIC source: publix_agentic_<yourname>.medallion.gold_store_item_daily
 # MAGIC dimensions:
 # MAGIC   - name: store_number
 # MAGIC     expr: store_number
@@ -179,12 +196,13 @@ SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
 # MAGIC Query the metric view using the MEASURE() function:
 # MAGIC
 # MAGIC ```sql
+# MAGIC -- Replace publix_agentic_workshop with your own publix_agentic_<yourname>
 # MAGIC SELECT
 # MAGIC   store_number,
 # MAGIC   sales_date,
 # MAGIC   MEASURE(total_revenue) as revenue,
 # MAGIC   MEASURE(total_units) as units
-# MAGIC FROM publix_agentic_workshop.medallion.store_performance_metric_view
+# MAGIC FROM publix_agentic_<yourname>.medallion.store_performance_metric_view
 # MAGIC GROUP BY store_number, sales_date;
 # MAGIC ```
 # MAGIC
@@ -303,4 +321,4 @@ SELECT * FROM publix_agentic_workshop.medallion.gold_store_item_daily LIMIT 3
 # MAGIC - Genie One enabled for enterprise-wide routing
 # MAGIC
 # MAGIC In **Notebook 6**, you will build a **Databricks App** - a web UI that lets end users explore the same data
-# MAGIC without leaving Publix's internal systems. That app will use the same gold tables and can invoke Genie as a backend service.
+# MAGIC without leaving Publix's internal systems. That app will use your own gold table and can invoke Genie as a backend service.

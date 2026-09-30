@@ -1,13 +1,12 @@
--- Publix Agentic Workshop - Shared catalog, schemas, and Zerobus landing tables
--- =============================================================================
--- Run once against the workshop workspace before Lab 1.
+-- Publix Agentic Workshop - Per-User Catalogs, Schemas, and Zerobus Landing Tables (Reference DDL)
+-- ================================================================================================
+-- This is the reference DDL. Notebook 1 creates a per-user catalog via the my_name widget.
 --
--- This setup creates a shared catalog (`publix_agentic_workshop`) where all workshop
--- participants will populate the same gold table (`medallion.gold_store_item_daily`).
--- Everyone uses the same bronze landing tables (populated by Zerobus in Lab 1),
--- and everyone builds silver and gold through the SDP pipeline in Lab 2.
+-- Each workshop participant creates their OWN catalog: `publix_agentic_<yourname>`.
+-- Replace `publix_agentic_workshop` below with your own `publix_agentic_<yourname>` (you all share one workspace).
+-- Everyone builds the same medallion structure (bronze -> silver -> gold) in their own catalog.
 --
--- Lab 3 queries the shared gold table together. Lab 4 builds an app on top of it.
+-- This file is the reference schema definition; Notebook 1 creates it per-user via the my_name widget.
 
 CREATE CATALOG IF NOT EXISTS publix_agentic_workshop;
 CREATE SCHEMA  IF NOT EXISTS publix_agentic_workshop.bronze   COMMENT "Raw Zerobus ingest landing tables";

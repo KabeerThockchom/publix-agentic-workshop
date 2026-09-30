@@ -13,6 +13,22 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Your Catalog
+# MAGIC
+# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
+
+# COMMAND ----------
+
+dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
+name = dbutils.widgets.get("my_name")
+assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
+CATALOG = f"publix_agentic_{name}"
+print(f"Your catalog: {CATALOG}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## What is Zerobus?
 # MAGIC
 # MAGIC **Zerobus** is a serverless ingest service on Databricks:
@@ -74,15 +90,15 @@
 # MAGIC > - Use the Zerobus Ingest SDK (install: pip install databricks-zerobus-ingest-sdk)
 # MAGIC > - Connect to the Zerobus endpoint: https://<workspace-id>.zerobus.eastus.azuredatabricks.net
 # MAGIC > - Authenticate using a service principal (app_id and secret from Databricks secret scope publix_workshop)
-# MAGIC > - Define two Zerobus streams:
-# MAGIC >   1. publix_agentic_workshop.bronze.sales_events (6 realistic Publix products with prices)
-# MAGIC >   2. publix_agentic_workshop.bronze.price_updates
+# MAGIC > - Define two Zerobus streams (use YOUR catalog publix_agentic_<yourname>):
+# MAGIC >   1. publix_agentic_<yourname>.bronze.sales_events (6 realistic Publix products with prices)
+# MAGIC >   2. publix_agentic_<yourname>.bronze.price_updates
 # MAGIC > - For 60 seconds, publish synthetic events:
 # MAGIC >   - 3-6 sales per second to sales_events (random store, product, quantity)
 # MAGIC >   - Occasional price updates (10% chance per second)
 # MAGIC > - Use fire-and-forget ingestion (ingest_record_nowait)
 # MAGIC > - Flush and close streams cleanly at the end
-# MAGIC > - Use environment variables for all credentials (DATABRICKS_WORKSPACE_URL, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, ZEROBUS_SERVER_ENDPOINT, DURATION_SECONDS)
+# MAGIC > - Use environment variables for all credentials (DATABRICKS_WORKSPACE_URL, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, ZEROBUS_SERVER_ENDPOINT, DURATION_SECONDS, WORKSHOP_CATALOG env var for override)
 # MAGIC >
 # MAGIC > Generate a production-ready script. Show me the plan and the code.
 # MAGIC > ```
@@ -124,7 +140,7 @@ from uuid import uuid4
 from zerobus.sdk.sync import ZerobusSdk
 from zerobus.sdk.shared import RecordType, StreamConfigurationOptions, TableProperties
 
-CATALOG = os.environ.get("WORKSHOP_CATALOG", "publix_agentic_workshop")
+CATALOG = os.environ.get("WORKSHOP_CATALOG", "publix_agentic_workshop")  # Override via env var; default assumes hardcoded catalog for reference
 SALES_TABLE = f"{CATALOG}.bronze.sales_events"
 PRICE_TABLE = f"{CATALOG}.bronze.price_updates"
 
@@ -240,15 +256,15 @@ print(reference_code[:500] + "...\n[See full code above]")
 
 # COMMAND ----------
 
-spark.sql("""
+spark.sql(f"""
 SELECT COUNT(*) as sales_events, COUNT(DISTINCT store_number) as stores
-FROM publix_agentic_workshop.bronze.sales_events
+FROM {CATALOG}.bronze.sales_events
 """).display()
 
 # COMMAND ----------
 
-spark.sql("""
-SELECT * FROM publix_agentic_workshop.bronze.sales_events LIMIT 5
+spark.sql(f"""
+SELECT * FROM {CATALOG}.bronze.sales_events LIMIT 5
 """).display()
 
 # COMMAND ----------
@@ -272,9 +288,9 @@ SELECT * FROM publix_agentic_workshop.bronze.sales_events LIMIT 5
 # MAGIC %md
 # MAGIC ## Next: Notebook 4 - Medallion Pipeline
 # MAGIC
-# MAGIC Your bronze tables are now populated:
+# MAGIC Your bronze tables are now populated (in your own catalog):
 # MAGIC - `bronze.sales_events` - real-time sales from Zerobus publisher
 # MAGIC - `bronze.price_updates` - real-time price changes from Zerobus
 # MAGIC
 # MAGIC **Next step:** Build the medallion pipeline (silver + gold) with Spark Declarative Pipelines.
-# MAGIC Everyone in the workshop populates the same `medallion.gold_store_item_daily` table.
+# MAGIC Everyone builds the same pipeline structure, each in their own catalog.
