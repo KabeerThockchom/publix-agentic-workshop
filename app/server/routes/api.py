@@ -1,12 +1,13 @@
 """API routes for Store Pulse."""
 import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .. import genie, lakebase, warehouse
-from ..config import GENIE_SPACE_ID
+from ..config import GENIE_SPACE_ID, get_workspace_host
 
 log = logging.getLogger("store_pulse")
 router = APIRouter(prefix="/api")
@@ -19,67 +20,77 @@ def health():
 
 @router.get("/config")
 def config():
+    embed_url = None
+    if GENIE_SPACE_ID:
+        try:
+            host = get_workspace_host().rstrip("/")
+            embed_url = f"{host}/embed/genie/rooms/{GENIE_SPACE_ID}"
+            m = re.search(r"adb-(\d+)\.", host)
+            if m:
+                embed_url += f"?o={m.group(1)}"
+        except Exception:
+            embed_url = None
     return {
         "app": "Publix Store Pulse",
         "genie_configured": genie.is_configured(),
         "lakebase_configured": lakebase.is_configured(),
         "genie_space_id_set": bool(GENIE_SPACE_ID),
+        "genie_space_id": GENIE_SPACE_ID or None,
+        "genie_embed_url": embed_url,
+        "lakebase_reads": lakebase.reads_enabled(),
     }
 
 
-# --- Store performance (warehouse reads) ---
+# --- Store performance reads ---
+# Serve from Lakebase Postgres (LTAP) for sub-second reads, falling back to the
+# SQL warehouse if the Lakebase copy is unavailable.
+def _read(name: str, lake_fn, wh_fn):
+    if lakebase.reads_enabled():
+        try:
+            return lake_fn()
+        except Exception:
+            log.exception("%s: lakebase read failed, falling back to warehouse", name)
+    try:
+        return wh_fn()
+    except Exception as e:
+        log.exception("%s failed", name)
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 @router.get("/metrics/summary")
 def metrics_summary():
-    try:
-        return warehouse.summary()
-    except Exception as e:
-        log.exception("summary failed")
-        raise HTTPException(status_code=502, detail=str(e))
+    return _read("summary", lakebase.summary, warehouse.summary)
 
 
 @router.get("/metrics/by-store")
 def metrics_by_store():
-    try:
-        return warehouse.by_store()
-    except Exception as e:
-        log.exception("by_store failed")
-        raise HTTPException(status_code=502, detail=str(e))
+    return _read("by_store", lakebase.by_store, warehouse.by_store)
 
 
 @router.get("/metrics/by-item")
 def metrics_by_item():
-    try:
-        return warehouse.by_item()
-    except Exception as e:
-        log.exception("by_item failed")
-        raise HTTPException(status_code=502, detail=str(e))
+    return _read("by_item", lakebase.by_item, warehouse.by_item)
 
 
 @router.get("/metrics/trend")
 def metrics_trend():
-    try:
-        return warehouse.trend()
-    except Exception as e:
-        log.exception("trend failed")
-        raise HTTPException(status_code=502, detail=str(e))
+    return _read("trend", lakebase.trend, warehouse.trend)
 
 
 @router.get("/prices")
 def prices():
-    try:
-        return warehouse.price_updates()
-    except Exception as e:
-        log.exception("prices failed")
-        raise HTTPException(status_code=502, detail=str(e))
+    return _read("prices", lakebase.price_updates, warehouse.price_updates)
 
 
 @router.get("/catalog")
 def catalog():
-    try:
+    def _lake():
+        return {"items": lakebase.items_catalog(), "stores": lakebase.stores_catalog()}
+
+    def _wh():
         return {"items": warehouse.items_catalog(), "stores": warehouse.stores_catalog()}
-    except Exception as e:
-        log.exception("catalog failed")
-        raise HTTPException(status_code=502, detail=str(e))
+
+    return _read("catalog", _lake, _wh)
 
 
 # --- Actions (Lakebase read/write) ---

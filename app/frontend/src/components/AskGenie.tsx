@@ -2,15 +2,25 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, GenieResult } from '../lib/api';
 import { Card } from './Card';
 
+type Mode = 'ask' | 'embed';
+
 export default function AskGenie() {
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('ask');
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<GenieResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.config().then((c) => setConfigured(c.genie_configured)).catch(() => setConfigured(false));
+    api
+      .config()
+      .then((c) => {
+        setConfigured(c.genie_configured);
+        setEmbedUrl(c.genie_embed_url ?? null);
+      })
+      .catch(() => setConfigured(false));
   }, []);
 
   async function ask(e: FormEvent) {
@@ -44,7 +54,55 @@ export default function AskGenie() {
         </div>
       )}
 
-      {configured && (
+      {configured && embedUrl && (
+        <div className="mb-4 inline-flex rounded-lg border border-black/10 p-0.5 text-xs">
+          <button
+            onClick={() => setMode('ask')}
+            className={`rounded-md px-3 py-1 font-medium transition ${
+              mode === 'ask' ? 'bg-publix-green text-white' : 'text-navy/60 hover:text-navy'
+            }`}
+          >
+            Ask Genie (API)
+          </button>
+          <button
+            onClick={() => setMode('embed')}
+            className={`rounded-md px-3 py-1 font-medium transition ${
+              mode === 'embed' ? 'bg-publix-green text-white' : 'text-navy/60 hover:text-navy'
+            }`}
+          >
+            Embed (iframe)
+          </button>
+        </div>
+      )}
+
+      {configured && mode === 'embed' && embedUrl && (
+        <div>
+          <div className="overflow-hidden rounded-lg border border-black/10">
+            <iframe
+              title="Genie space"
+              src={embedUrl}
+              width="100%"
+              height="600"
+              frameBorder="0"
+              allow="clipboard-write"
+              className="w-full bg-white"
+            />
+          </div>
+          <p className="mt-2 text-xs text-navy/50">
+            If this stays blank, Databricks blocks framing (X-Frame-Options / CSP). Use{' '}
+            <button className="underline" onClick={() => setMode('ask')}>
+              Ask Genie (API)
+            </button>{' '}
+            above, or{' '}
+            <a className="underline" href={embedUrl} target="_blank" rel="noreferrer">
+              open the Genie space in a new tab
+            </a>
+            .
+          </p>
+        </div>
+      )}
+
+      {configured && mode === 'ask' && (
         <>
           <form onSubmit={ask} className="flex gap-2">
             <input

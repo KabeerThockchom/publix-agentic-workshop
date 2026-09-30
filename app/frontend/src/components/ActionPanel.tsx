@@ -123,6 +123,8 @@ export default function ActionPanel() {
             <input
               className={inputCls}
               type="number"
+              inputMode="decimal"
+              min="0"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}

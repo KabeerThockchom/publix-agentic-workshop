@@ -27,6 +27,39 @@ def is_configured() -> bool:
     return bool(os.environ.get("PGHOST"))
 
 
+# Schema holding the synced/snapshotted dashboard tables (gold + prices).
+READ_SCHEMA = os.environ.get("LAKEBASE_READ_SCHEMA", "public")
+_GOLD = f"{READ_SCHEMA}.gold_store_item_daily"
+_PRICES = f"{READ_SCHEMA}.price_updates"
+
+_reads_ok: Optional[bool] = None
+
+
+def reads_enabled() -> bool:
+    """True when the Lakebase dashboard tables exist and are readable.
+
+    Cached after the first probe so /config and every read path share one answer.
+    """
+    global _reads_ok
+    if not is_configured():
+        return False
+    if _reads_ok is not None:
+        return _reads_ok
+    try:
+        def _probe(conn):
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT 1 FROM {_GOLD} LIMIT 1")
+                cur.fetchone()
+                cur.execute(f"SELECT 1 FROM {_PRICES} LIMIT 1")
+                cur.fetchone()
+            return True
+
+        _reads_ok = _run(_probe)
+    except Exception:
+        _reads_ok = False
+    return _reads_ok
+
+
 def _mint_token() -> str:
     """Mint a Postgres OAuth credential for the Lakebase endpoint."""
     w = get_workspace_client()
@@ -144,3 +177,157 @@ def _serialize(row: Optional[dict]) -> Optional[dict]:
     if out.get("action_id") is not None:
         out["action_id"] = int(out["action_id"])
     return out
+
+
+# --- Snappy dashboard reads served from Lakebase Postgres (LTAP) --------------
+# These read from the synced/snapshotted `gold_store_item_daily` and
+# `price_updates` tables in Lakebase instead of round-tripping to the SQL
+# warehouse. The API layer falls back to the warehouse if these raise.
+
+def _f(v: Any) -> float:
+    if v is None:
+        return 0.0
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+    def _do(conn):
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(sql, params)
+            return [dict(r) for r in cur.fetchall()]
+
+    return _run(_do)
+
+
+def summary() -> dict[str, Any]:
+    rows = _query(
+        f"""
+        SELECT SUM(revenue) AS total_revenue,
+               SUM(units_sold) AS total_units,
+               COUNT(DISTINCT store_number) AS stores,
+               COUNT(DISTINCT item_id) AS items,
+               CAST(MIN(sales_date) AS TEXT) AS start_date,
+               CAST(MAX(sales_date) AS TEXT) AS end_date
+        FROM {_GOLD}
+        """
+    )
+    r = rows[0] if rows else {}
+    return {
+        "total_revenue": _f(r.get("total_revenue")),
+        "total_units": int(_f(r.get("total_units"))),
+        "stores": int(_f(r.get("stores"))),
+        "items": int(_f(r.get("items"))),
+        "start_date": r.get("start_date"),
+        "end_date": r.get("end_date"),
+    }
+
+
+def by_store() -> list[dict[str, Any]]:
+    rows = _query(
+        f"""
+        SELECT store_number,
+               SUM(revenue) AS revenue,
+               SUM(units_sold) AS units,
+               COUNT(DISTINCT item_id) AS items
+        FROM {_GOLD}
+        GROUP BY store_number
+        ORDER BY revenue DESC
+        """
+    )
+    return [
+        {
+            "store_number": str(r.get("store_number")),
+            "revenue": _f(r.get("revenue")),
+            "units": int(_f(r.get("units"))),
+            "items": int(_f(r.get("items"))),
+        }
+        for r in rows
+    ]
+
+
+def by_item() -> list[dict[str, Any]]:
+    rows = _query(
+        f"""
+        SELECT item_id, item_name, item_category,
+               SUM(revenue) AS revenue,
+               SUM(units_sold) AS units
+        FROM {_GOLD}
+        GROUP BY item_id, item_name, item_category
+        ORDER BY revenue DESC
+        """
+    )
+    return [
+        {
+            "item_id": str(r.get("item_id")),
+            "item_name": r.get("item_name"),
+            "item_category": r.get("item_category"),
+            "revenue": _f(r.get("revenue")),
+            "units": int(_f(r.get("units"))),
+        }
+        for r in rows
+    ]
+
+
+def trend() -> list[dict[str, Any]]:
+    rows = _query(
+        f"""
+        SELECT CAST(sales_date AS TEXT) AS sales_date,
+               SUM(revenue) AS revenue,
+               SUM(units_sold) AS units
+        FROM {_GOLD}
+        GROUP BY sales_date
+        ORDER BY sales_date
+        """
+    )
+    return [
+        {
+            "sales_date": r.get("sales_date"),
+            "revenue": _f(r.get("revenue")),
+            "units": int(_f(r.get("units"))),
+        }
+        for r in rows
+    ]
+
+
+def price_updates(limit: int = 50) -> list[dict[str, Any]]:
+    rows = _query(
+        f"""
+        SELECT event_timestamp, item_id, item_name, old_price, new_price, effective_date
+        FROM {_PRICES}
+        ORDER BY event_timestamp DESC
+        LIMIT %s
+        """,
+        (int(limit),),
+    )
+    out = []
+    for r in rows:
+        old_p = _f(r.get("old_price"))
+        new_p = _f(r.get("new_price"))
+        pct = ((new_p - old_p) / old_p * 100.0) if old_p else 0.0
+        out.append(
+            {
+                "event_timestamp": r.get("event_timestamp"),
+                "item_id": str(r.get("item_id")),
+                "item_name": r.get("item_name"),
+                "old_price": old_p,
+                "new_price": new_p,
+                "pct_change": round(pct, 2),
+                "effective_date": r.get("effective_date"),
+            }
+        )
+    return out
+
+
+def items_catalog() -> list[dict[str, Any]]:
+    rows = _query(
+        f"SELECT DISTINCT item_id, item_name FROM {_GOLD} ORDER BY item_id"
+    )
+    return [{"item_id": str(r.get("item_id")), "item_name": r.get("item_name")} for r in rows]
+
+
+def stores_catalog() -> list[str]:
+    rows = _query(f"SELECT DISTINCT store_number FROM {_GOLD} ORDER BY store_number")
+    return [str(r.get("store_number")) for r in rows]

@@ -54,6 +54,9 @@ export interface AppConfig {
   genie_configured: boolean;
   lakebase_configured: boolean;
   genie_space_id_set: boolean;
+  genie_space_id?: string | null;
+  genie_embed_url?: string | null;
+  lakebase_reads?: boolean;
 }
 
 export interface GenieResult {
