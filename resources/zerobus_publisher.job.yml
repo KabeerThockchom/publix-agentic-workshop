@@ -2,6 +2,10 @@ resources:
   jobs:
     zerobus_publisher:
       name: "[${bundle.target}] publix-zerobus-publisher"
+      # OPTIONAL DEMO: pre-run before the workshop or run as a background service.
+      # Streams synthetic Publix sales + price events into bronze.sales_events and bronze.price_updates.
+      # Lab 1 shows this as a demo; participants do not hand-code the publisher.
+      # Bronze tables will contain sample data by the time Lab 2 starts.
       tasks:
         - task_key: publish
           spark_python_task:

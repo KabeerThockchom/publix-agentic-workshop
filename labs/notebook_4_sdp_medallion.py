@@ -1,13 +1,17 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Lab 2 - Medallion Pipeline with Spark Declarative Pipelines
+# MAGIC # Notebook 4 - Medallion Pipeline with Spark Declarative Pipelines
 # MAGIC ### Agentic Development on Databricks - Publix Workshop
 # MAGIC
-# MAGIC **Goal:** turn raw Zerobus events into a clean, queryable semantic layer for Genie. ~30 minutes.
+# MAGIC **Goal:** This is the main hands-on exercise. Build silver + gold layers that everyone lands in the same place.
+# MAGIC ~30 minutes.
 # MAGIC
 # MAGIC You will build the silver and gold layers of a medallion architecture using Spark Declarative
 # MAGIC Pipelines (SDP). SDP is serverless streaming orchestration - write SQL, Databricks runs it with
-# MAGIC managed checkpointing and fault tolerance. Great fit if your team already thinks in SQL.
+# MAGIC managed checkpointing and fault tolerance.
+# MAGIC
+# MAGIC **Shared exercise:** By the end of this notebook, everyone in the room will have populated the same gold table:
+# MAGIC `publix_agentic_workshop.medallion.gold_store_item_daily`. We will query it together in Notebook 5.
 
 # COMMAND ----------
 
@@ -210,6 +214,28 @@ LIMIT 10
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Shared Exercise Checkpoint
+# MAGIC
+# MAGIC Confirm your row counts roughly match your neighbor's. If gold has 0 rows, ask an instructor.
+
+# COMMAND ----------
+
+# Quick sanity check
+gold_count = spark.sql("SELECT COUNT(*) as cnt FROM publix_agentic_workshop.medallion.gold_store_item_daily").collect()[0]["cnt"]
+silver_count = spark.sql("SELECT COUNT(*) as cnt FROM publix_agentic_workshop.medallion.silver_sales").collect()[0]["cnt"]
+
+print(f"Your pipeline status:")
+print(f"  Silver rows: {silver_count}")
+print(f"  Gold rows: {gold_count}")
+
+if gold_count == 0:
+    print("\n[!] Gold table is empty. Pipeline may not have started. Check the Pipelines UI and ask an instructor.")
+else:
+    print(f"\n[OK] You have {gold_count} gold rows. Compare with your neighbor - you should be in the same ballpark.")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Key concepts: gotchas and best practices
 # MAGIC
 # MAGIC **Liquid Clustering vs. Partitioning**
@@ -235,11 +261,11 @@ LIMIT 10
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Next: Lab 3
+# MAGIC ## Next: Notebook 5
 # MAGIC
-# MAGIC Your medallion is ready. In Lab 3, you will:
+# MAGIC Your medallion is ready. In Notebook 5, you will:
 # MAGIC - Create a Genie space indexed on gold_store_item_daily
 # MAGIC - Ask Genie questions like "sales by region" or "top items by revenue"
 # MAGIC - See how Genie uses your semantic layer to generate queries automatically
 # MAGIC
-# MAGIC The whole loop: Zerobus (Lab 1) > Medallion (Lab 2, today) > Genie (Lab 3) > App (Lab 4).
+# MAGIC The whole loop: Setup (Notebook 1) > Kafka/Zerobus (Notebooks 2-3) > Medallion (Notebook 4, now) > Genie (Notebook 5) > App (Notebook 6).
