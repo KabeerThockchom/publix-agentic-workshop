@@ -4,7 +4,10 @@ Starter prompts for agentic development on Databricks, from the Publix workshop.
 Copy, adapt, make them yours. The pattern: **describe → generate → review → deploy**.
 
 This playbook is organized by **notebook** so you know when and how to use each prompt.
-Swap the example names (`publix_agentic_workshop`, `gold_store_item_daily`, etc.) for your own.
+
+> **You all share one workspace, so build in your OWN catalog.** Everywhere a prompt says
+> `publix_agentic_workshop`, use `publix_agentic_<yourname>` instead (e.g. `publix_agentic_sai`).
+> Keep it lowercase, no spaces. Your catalog, your schemas, your Genie space, your app - end to end.
 
 ---
 

@@ -11,15 +11,31 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Part 0 - Name your catalog (you all share this workspace)
+# MAGIC
+# MAGIC Everyone works in the **same workspace**, so each person builds in their **own catalog**.
+# MAGIC Run the next cell, then type your first name in the `my_name` box that appears at the top.
+
+# COMMAND ----------
+
+dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
+name = dbutils.widgets.get("my_name")
+assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
+CATALOG = f"publix_agentic_{name}"
+print(f"Your catalog will be: {CATALOG}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Part 1 - Create Catalog & Schemas
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- Create shared catalog for all workshop participants
-# MAGIC CREATE CATALOG IF NOT EXISTS publix_agentic_workshop;
-# MAGIC CREATE SCHEMA  IF NOT EXISTS publix_agentic_workshop.bronze   COMMENT "Raw ingest landing tables";
-# MAGIC CREATE SCHEMA  IF NOT EXISTS publix_agentic_workshop.medallion COMMENT "Silver (streaming) + Gold (materialized) shared outputs";
+# MAGIC -- Your own catalog, namespaced by your name so it won't collide with anyone else's
+# MAGIC CREATE CATALOG IF NOT EXISTS publix_agentic_${my_name};
+# MAGIC CREATE SCHEMA  IF NOT EXISTS publix_agentic_${my_name}.bronze    COMMENT "Raw ingest landing tables";
+# MAGIC CREATE SCHEMA  IF NOT EXISTS publix_agentic_${my_name}.medallion COMMENT "Silver (streaming) + Gold (materialized)";
 
 # COMMAND ----------
 
@@ -30,7 +46,7 @@
 
 # MAGIC %sql
 # MAGIC -- Sales events (target for Kafka producer or Zerobus). Timestamps land as ISO strings; cast in silver.
-# MAGIC CREATE TABLE IF NOT EXISTS publix_agentic_workshop.bronze.sales_events (
+# MAGIC CREATE TABLE IF NOT EXISTS publix_agentic_${my_name}.bronze.sales_events (
 # MAGIC   event_id        STRING,
 # MAGIC   store_number    INT,
 # MAGIC   event_timestamp STRING,
@@ -50,7 +66,7 @@
 
 # MAGIC %sql
 # MAGIC -- Item price updates (target for Kafka producer or Zerobus).
-# MAGIC CREATE TABLE IF NOT EXISTS publix_agentic_workshop.bronze.price_updates (
+# MAGIC CREATE TABLE IF NOT EXISTS publix_agentic_${my_name}.bronze.price_updates (
 # MAGIC   event_id        STRING,
 # MAGIC   event_timestamp STRING,
 # MAGIC   item_id         INT,
@@ -77,8 +93,8 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 import json
 
-# Configuration
-CATALOG = "publix_agentic_workshop"
+# Configuration - reads your name from the widget set in Part 0
+CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
 SALES_TABLE = f"{CATALOG}.bronze.sales_events"
 PRICE_TABLE = f"{CATALOG}.bronze.price_updates"
 
@@ -244,8 +260,8 @@ spark.sql(f"SELECT * FROM {SALES_TABLE} LIMIT 3").display()
 # MAGIC %md
 # MAGIC ## Setup Complete!
 # MAGIC
-# MAGIC You now have:
-# MAGIC - Catalog: `publix_agentic_workshop`
+# MAGIC You now have (in **your own** catalog):
+# MAGIC - Catalog: `publix_agentic_<yourname>`
 # MAGIC - Schemas: `bronze` (raw landing), `medallion` (silver + gold)
 # MAGIC - Tables: `bronze.sales_events` (~50 rows), `bronze.price_updates` (~5 rows)
 # MAGIC
