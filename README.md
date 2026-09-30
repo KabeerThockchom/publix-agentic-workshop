@@ -20,6 +20,20 @@ Take an idea to a governed, deployed result in one day. You build a real-time pi
 
 Placeholders like `<workspace-id>`, `<warehouse-id>`, `<genie-space-id>` are yours to fill in. No real infra IDs in this repo.
 
+## Clone this repo (two places)
+
+Clone it **twice** - once into the workspace, once onto your laptop:
+
+1. **Into your Databricks workspace, as a Git folder.**
+   Workspace → **Repos / Git folders** → **Add Git folder** → paste this repo's URL.
+   This is where you run the notebooks and where Genie Code writes code. You build live here.
+2. **Onto your laptop** (`git clone ...`).
+   You only need this for the one thing that runs locally: the Zerobus publisher
+   (`src/zerobus/publisher.py`). Set your credentials as env vars (see the publisher header) and run it.
+
+Genie Code writes *into* the workspace folder - it doesn't replace it. The notebooks are your
+reference / answer key: if a live generation drifts, open the matching notebook and catch up.
+
 ## The notebooks
 
 1. `notebook_1_setup` - create catalog/schemas/tables + mock data (run first).
@@ -27,13 +41,14 @@ Placeholders like `<workspace-id>`, `<warehouse-id>`, `<genie-space-id>` are you
 3. `notebook_3_zerobus_genie_code` - real-time ingest, built with Genie Code.
 4. `notebook_4_sdp_medallion` - bronze -> silver -> gold with Spark Declarative Pipelines. Everyone lands in the same gold table.
 5. `notebook_5_genie_spaces` - metric views + a Genie space/agent (created via the API).
-6. `notebook_6_build_ship_app` - build + ship a Databricks App.
+6. `notebook_6_build_ship_app` - build + ship a Databricks App, two ways: **Genie App Builder** (no-code, describe it in the UI and deploy a Serverless Micro App) or the **FastAPI+React reference** in `app/`. See `PROMPTS.md` → Notebook 6.
 
 ## Prerequisites
 
 - A Databricks workspace with **Genie Code enabled** and a **serverless SQL warehouse**.
 - Permission to **create schemas + tables** in a catalog.
 - The Databricks CLI, authenticated.
+- For the Genie App Builder path: the **Governed agentic app-building** preview enabled + an **App Space** (with the warehouse, gold table, and Genie space as resources) you have **CAN CREATE APP** on. Optional - the `app/` reference is the fallback.
 
 ## The loop, every time
 

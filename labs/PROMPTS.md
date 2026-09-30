@@ -122,27 +122,74 @@ Save both to `src/pipelines/transformations/` and deploy via DAB.
 
 ### Notebook 6 - Build & Ship an App (`notebook_6_build_ship_app.py`)
 
-**Two paths:** App Builder (UI-driven, simpler) or CLI + manual dev (full control).
+**Two paths:** **Genie App Builder** (no code, build it visually in the UI - the main path) or **CLI + AppKit / FastAPI+React** (full control, the reference app in `app/`).
 
-**App Builder (simpler):**
+---
 
-> Using App Builder in the workspace UI, create a snapshot app that queries the gold table:
-> ```sql
-> SELECT store_number, item_id, item_name, revenue, units_sold
-> FROM publix_agentic_workshop.medallion.gold_store_item_daily
-> ORDER BY revenue DESC
+#### Path A - Genie App Builder (no code, visual)
+
+Genie App Builder is native to Databricks: you describe the app in plain English, it generates a
+live preview, you iterate with follow-up prompts, then deploy. It's **data-aware** - it already
+knows the tables, Unity Catalog semantics, and Genie spaces available in your App Space, so there's
+no manual wiring. Apps built here run as **Serverless Micro Apps** (scale to zero, back up to one).
+
+**Prereqs (a workspace admin does this once, before the workshop):**
+1. Enable the **Governed agentic app-building** preview (Settings → Previews). App Spaces + a **Build** tab then appear in the Apps home page.
+2. Create an **App Space** and add its resources: the **SQL warehouse**, the gold table (`publix_agentic_workshop.medallion.gold_store_item_daily`), and the **"Store Performance" Genie space** (add it as a Genie Agent resource, CAN RUN).
+3. Grant builders **CAN CREATE APP** on the App Space.
+
+**Build it:** Apps home → **Build** tab → select your App Space → name it "Store Pulse" → paste this prompt:
+
+> **🧞 Prompt for Genie App Builder**
 > ```
-> Configure the UI, add store filter, and publish to a shareable URL.
+> Build a store operations dashboard for a Publix store manager, using the gold table
+> publix_agentic_workshop.medallion.gold_store_item_daily and the "Store Performance"
+> Genie space in this App Space.
+>
+> Layout:
+> - A store selector (store_number) at the top that filters the whole page.
+> - KPI cards: total revenue, total units sold, and number of items sold, for the selected store.
+> - A ranked horizontal bar chart of the top 10 items by revenue for the selected store.
+> - A sortable table of items showing item_name, units_sold, and revenue.
+> - A right-hand panel titled "Ask about this store" where the manager types a plain-English
+>   question and the Store Performance Genie space answers, showing the result and the SQL it ran.
+>
+> Keep it clean, fast, and readable. Use clear retail labels (Revenue, Units Sold, Items).
+> ```
 
-**CLI + Manual Dev (more control, Genie Code can help draft the backend):**
+Sign in to see the preview, then refine with follow-ups:
+
+> ```
+> Add a daily revenue trend line chart for the selected store.
+> ```
+> ```
+> Add a date-range picker and make the KPIs and charts reflect the selected range.
+> ```
+
+When it looks right, click **Deploy** (or tell the builder "deploy this app"). It runs as a
+Serverless Micro App on a shareable URL.
+
+*If the preview isn't enabled on your workspace, use Path B - the same app is in `app/` as a
+reference you can deploy directly.*
+
+---
+
+#### Path B - CLI + AppKit / FastAPI+React (full control)
+
+The reference app lives in `app/` (this is our "Store Pulse" - dashboard on gold, refund/what-if
+write-back, embedded Genie). Genie Code can help you draft or extend the backend:
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Set up a Node.js/React frontend + FastAPI backend locally. The backend queries
-> `publix_agentic_workshop.medallion.gold_store_item_daily` via the Databricks SQL warehouse
-> named `publix-workshop-wh`. Show me the app.yaml, the warehouse connection config, and the
-> commands to deploy via `databricks bundle deploy`.
+> Set up a FastAPI backend + React frontend for a Databricks App. The backend queries
+> `publix_agentic_workshop.medallion.gold_store_item_daily` via a Databricks SQL warehouse
+> and adds a /api/genie/ask route that forwards a question to a Genie space and returns the
+> answer + SQL. Show me app.yaml (warehouse + genie-space resources), the server routes, and
+> the `databricks sync` + `databricks apps deploy` commands.
 > ```
+
+Deploy: set your warehouse / catalog / Genie-space ids in `app/app.yaml`, then
+`databricks sync app/ <workspace-path>` and `databricks apps deploy <app-name>`.
 
 ---
 
