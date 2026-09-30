@@ -1,0 +1,10 @@
+# Local dependencies for the Zerobus publisher (src/zerobus/publisher.py).
+# This is the ONLY thing that runs off-platform (on your laptop).
+#
+# Set up an isolated environment with uv:
+#   uv venv --python 3.11
+#   source .venv/bin/activate
+#   uv pip install -r requirements.txt
+#
+# Everything else the publisher uses is in the Python standard library.
+databricks-zerobus-ingest-sdk

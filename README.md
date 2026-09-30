@@ -29,7 +29,15 @@ Clone it **twice** - once into the workspace, once onto your laptop:
    This is where you run the notebooks and where Genie Code writes code. You build live here.
 2. **Onto your laptop** (`git clone ...`).
    You only need this for the one thing that runs locally: the Zerobus publisher
-   (`src/zerobus/publisher.py`). Set your credentials as env vars (see the publisher header) and run it.
+   (`src/zerobus/publisher.py`). Set up an isolated environment with [uv](https://docs.astral.sh/uv/):
+   ```bash
+   uv venv --python 3.11
+   source .venv/bin/activate
+   uv pip install -r requirements.txt
+   ```
+   Then set the four env vars from the publisher header (`ZEROBUS_SERVER_ENDPOINT`,
+   `DATABRICKS_WORKSPACE_URL`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CLIENT_SECRET`) and run
+   `python src/zerobus/publisher.py`.
 
 Genie Code writes *into* the workspace folder - it doesn't replace it. The notebooks are your
 reference / answer key: if a live generation drifts, open the matching notebook and catch up.
