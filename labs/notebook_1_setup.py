@@ -31,11 +31,11 @@ print(f"Your catalog will be: {CATALOG}")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Your own catalog, namespaced by your name so it won't collide with anyone else's
-# MAGIC CREATE CATALOG IF NOT EXISTS publix_agentic_${my_name};
-# MAGIC CREATE SCHEMA  IF NOT EXISTS publix_agentic_${my_name}.bronze    COMMENT "Raw ingest landing tables";
-# MAGIC CREATE SCHEMA  IF NOT EXISTS publix_agentic_${my_name}.medallion COMMENT "Silver (streaming) + Gold (materialized)";
+# Your own catalog, namespaced by your name so it won't collide with anyone else's.
+# Uses the CATALOG variable (built from the my_name widget above) - no deprecated ${...} SQL substitution.
+spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
+spark.sql(f'CREATE SCHEMA IF NOT EXISTS {CATALOG}.bronze    COMMENT "Raw ingest landing tables"')
+spark.sql(f'CREATE SCHEMA IF NOT EXISTS {CATALOG}.medallion COMMENT "Silver (streaming) + Gold (materialized)"')
 
 # COMMAND ----------
 
@@ -44,39 +44,41 @@ print(f"Your catalog will be: {CATALOG}")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Sales events (target for Kafka producer or Zerobus). Timestamps land as ISO strings; cast in silver.
-# MAGIC CREATE TABLE IF NOT EXISTS publix_agentic_${my_name}.bronze.sales_events (
-# MAGIC   event_id        STRING,
-# MAGIC   store_number    INT,
-# MAGIC   event_timestamp STRING,
-# MAGIC   item_id         INT,
-# MAGIC   item_name       STRING,
-# MAGIC   item_category   STRING,
-# MAGIC   quantity_sold   INT,
-# MAGIC   unit_price      DOUBLE,
-# MAGIC   total_amount    DOUBLE,
-# MAGIC   cashier_id      STRING,
-# MAGIC   transaction_id  STRING,
-# MAGIC   ingestion_time  STRING
-# MAGIC ) USING DELTA
-# MAGIC TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+# Sales events (target for Kafka producer or Zerobus). Timestamps land as ISO strings; cast in silver.
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS {CATALOG}.bronze.sales_events (
+  event_id        STRING,
+  store_number    INT,
+  event_timestamp STRING,
+  item_id         INT,
+  item_name       STRING,
+  item_category   STRING,
+  quantity_sold   INT,
+  unit_price      DOUBLE,
+  total_amount    DOUBLE,
+  cashier_id      STRING,
+  transaction_id  STRING,
+  ingestion_time  STRING
+) USING DELTA
+TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true')
+""")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- Item price updates (target for Kafka producer or Zerobus).
-# MAGIC CREATE TABLE IF NOT EXISTS publix_agentic_${my_name}.bronze.price_updates (
-# MAGIC   event_id        STRING,
-# MAGIC   event_timestamp STRING,
-# MAGIC   item_id         INT,
-# MAGIC   item_name       STRING,
-# MAGIC   old_price       DOUBLE,
-# MAGIC   new_price       DOUBLE,
-# MAGIC   effective_date  STRING,
-# MAGIC   ingestion_time  STRING
-# MAGIC ) USING DELTA
-# MAGIC TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true');
+# Item price updates (target for Kafka producer or Zerobus).
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS {CATALOG}.bronze.price_updates (
+  event_id        STRING,
+  event_timestamp STRING,
+  item_id         INT,
+  item_name       STRING,
+  old_price       DOUBLE,
+  new_price       DOUBLE,
+  effective_date  STRING,
+  ingestion_time  STRING
+) USING DELTA
+TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true')
+""")
 
 # COMMAND ----------
 
