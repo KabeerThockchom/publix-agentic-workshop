@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NEUTRAL PLACEHOLDER wordmark for the StoreSight IQ QSR accelerator.
+  Replace with the customer's logo: set customer_config.yaml brand.logo_path to
+  your file (SVG or PNG); generate.py copies it in. Uses the neutral brand color.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 48" width="260" height="48" role="img" aria-label="StoreSight IQ">
+  <rect x="2" y="8" width="32" height="32" rx="8" fill="#2D6BE0"/>
+  <path d="M12 24l5 5 9-10" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="46" y="32" font-family="'DM Sans','SF Pro Display',-apple-system,Inter,system-ui,sans-serif" font-size="22" font-weight="700" fill="#1A1A1A">StoreSight</text>
+  <text x="196" y="32" font-family="'DM Sans','SF Pro Display',-apple-system,Inter,system-ui,sans-serif" font-size="22" font-weight="700" fill="#2D6BE0">IQ</text>
+</svg>

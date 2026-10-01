@@ -1,2 +1,9 @@
 .venv/
 __pycache__/
+node_modules/
+dist/
+.env
+.databricks/
+*.tsbuildinfo
+*.pyc
+.DS_Store

@@ -1,0 +1,146 @@
+# =============================================================================
+# StoreSight IQ — QSR Solution Accelerator
+# CUSTOMER CONFIGURATION MANIFEST  (copy to customer_config.yaml, then fill in)
+# =============================================================================
+#
+# This file is the SINGLE SOURCE OF TRUTH for everything that changes when the
+# app is re-skinned for a new Quick-Service Restaurant (QSR) customer:
+# brand, naming, and Databricks deploy targets.
+#
+# The *domain / product taxonomy* (products, ingredients, stores, hours) lives
+# in the companion file `domain.yaml` — it is separated because those fields
+# require domain modeling and feed BOTH the backend and the ML notebooks.
+#
+# HOW IT IS FILLED
+#   - Guided:  the accelerator skill interviews you field-by-field and writes it.
+#   - By hand: copy this to `customer_config.yaml` and edit the values.
+#
+# HOW IT IS APPLIED
+#   `python accelerator/generate.py` reads this manifest + domain.yaml and
+#   rewrites config/settings.py, app.yaml, the brand tokens (index.css) +
+#   brand.config.ts, the logos, index.html, the layout store lists, the notebook
+#   widget defaults, and databricks.yml (the DAB). The Genie space itself is
+#   created at run time by notebook 06 (from domain.json), not a file written
+#   here. Nothing below is hand-edited in code.
+#
+# Fields marked [HUMAN] cannot be automated — a person must supply the value
+# (e.g. a logo file) or perform a workspace action the config only records.
+# =============================================================================
+
+customer:
+  # Display brand of the end customer (appears in UI chrome, README, Genie).
+  # This is the ONLY naming field that may contain apostrophes/spaces/case —
+  # e.g. "Mama's Diner" is fine here (the generator escapes it for the UI).
+  name: "Reference QSR Co."
+  # Lowercase slug used to namespace every Databricks resource (bundle, DAB
+  # target, schema, endpoints, app). Two rules:
+  #  • FORMAT — start with a letter, then lowercase letters/digits only
+  #    (e.g. "mamasdiner" — NOT "mama's diner"). Used RAW in SQL DDL + the DAB (unlike
+  #    customer.name, never escaped); generate.py's validate_naming() enforces this.
+  #  • UNIQUENESS — MUST be globally unique per customer; NEVER reuse a slug.
+  #    It is the isolation key: a duplicate slug means a shared bundle name AND
+  #    DAB target AND Terraform state, so the 2nd deploy OVERWRITES the 1st's
+  #    schema/app/jobs (this happened twice). validate_naming does NOT check
+  #    uniqueness — you must confirm no other customer/branch already uses it.
+  short_code: "refqsr"
+  # The product name stays "StoreSight IQ" and is sub-branded per customer.
+  # (Locked decision from prior QSR builds — do not rename.)
+  product_name: "StoreSight IQ"
+  # Short descriptor shown under the product name on the login/landing screen.
+  tagline: "Store Operations Intelligence"
+
+brand:
+  # Primary brand color -> emitted as the `brand-primary` design token.
+  # (Do NOT name tokens after the customer — that forced ~15-file edits on an
+  #  earlier build. Tokens are neutral; only these hex values change.)
+  primary_hex: "#2D6BE0"
+  primary_dark_hex: "#1F4FAD"
+  primary_light_hex: "#5A8DEB"
+  # Secondary/accent brand color -> `brand-secondary` token.
+  secondary_hex: "#F5A623"
+  secondary_dark_hex: "#D18B12"
+  secondary_light_hex: "#F8BD57"
+  # [HUMAN] Customer logo assets. Drop the files in accelerator/assets/ and
+  # point these paths at them. SVG preferred for the wordmark; PNG/JPG ok for
+  # the circular avatar used in nav.
+  logo_path: "accelerator/assets/reference-logo.svg"
+  logo_circle_path: "accelerator/assets/reference-mark.svg"
+
+databricks:
+  # [HUMAN] Databricks CLI profile (from ~/.databrickscfg) that points at the
+  # target workspace. Every CLI/DAB command the accelerator runs uses it
+  # (`databricks ... -p <profile>` / `bundle deploy -p <profile>`), so the build
+  # always lands in the right workspace. Run `databricks auth profiles` to list.
+  # Use "DEFAULT" if you only have one profile configured.
+  profile: "DEFAULT"
+  # [HUMAN] Deploy target — the workspace URL and its numeric org id.
+  # workspace_id powers the Genie embed iframe URL (?o=<workspace_id>).
+  # (Must match the workspace the `profile` above authenticates to.)
+  workspace_host: "https://your-workspace.cloud.databricks.com"
+  workspace_id: "0000000000000000"
+  # Unity Catalog target. The catalog must ALREADY EXIST (the accelerator does
+  # NOT run CREATE CATALOG — that fails when account default storage is off).
+  catalog_name: "your_catalog"
+  # Schema is created by the DAB / notebook 01. Namespaced by short_code.
+  schema_name: "storesight_iq_refqsr"
+  # [HUMAN] Existing SQL Warehouse id (the app queries UC through it).
+  sql_warehouse_id: ""
+  # Every serving endpoint / app / lakebase name is derived from this prefix.
+  resource_prefix: "storesight-refqsr"
+
+lakebase:
+  # Project-based Lakebase instance (NOT a legacy instance). Create it once in
+  # the workspace as a prerequisite (see accelerator/WORKSPACE_STEPS.md §1) —
+  # wire_app.py then attaches it to the app and grants the app SP. Convention:
+  # "<resource_prefix>-oltp".
+  instance_name: "storesight-refqsr-oltp"
+  # Default database inside the Lakebase project.
+  database_name: "databricks_postgres"
+
+model_serving:
+  # Defaults are derived from databricks.resource_prefix; override only if you
+  # must match pre-existing endpoint names.
+  demand_forecast: "storesight-refqsr-demand-forecast"
+  labor_optimizer: "storesight-refqsr-labor-optimizer"
+  inventory_predictor: "storesight-refqsr-inventory-predictor"
+  # The 5th vertical's endpoint. Name is generic ("prep-scheduler") regardless
+  # of the customer's actual prep concept (bake/fry/proof) — see domain.yaml.
+  prep_scheduler: "storesight-refqsr-prep-scheduler"
+
+genie:
+  space_name: "Reference QSR Store Analytics"
+  description: "AI assistant for analyzing store performance, sales, labor, and inventory."
+  # Domain-specific sample questions live in domain.yaml (genie_sample_questions).
+
+app:
+  # Databricks Apps name (must be workspace-unique). Derived from resource_prefix.
+  name: "storesight-iq-refqsr"
+
+features:
+  # The 5th surface is a configurable "prep/production scheduler" abstraction.
+  # Set false to ship only the 6 generic surfaces (Ops, Forecast, Labor,
+  # Inventory, Map, Compare) if the customer has no clear prep-scheduling story.
+  prep_scheduler_enabled: true
+
+external_apis:
+  # OPTIONAL — Ticketmaster Discovery API key for LIVE local events on the
+  # Forecast page + Operations alerts.
+  #
+  # The events module is NEVER blank: with no key the app auto-populates fresh,
+  # up-to-date synthetic events (same format) so the demo always looks alive.
+  # Provide a key only if you want REAL local events for the store locations.
+  #
+  # HOW TO GET A KEY (free, ~2 min) — with the guided skill you do this DURING the
+  # interview and paste the key in; the skill creates the secret before deploy:
+  #   1. Go to https://developer.ticketmaster.com/explore/ and click "Get Your API
+  #      Key" (Sign Up — a free Ticketmaster/developer account).
+  #   2. Verify your email and log in to the developer portal.
+  #   3. Open "My Apps" (top-right menu) → your default app is created for you
+  #      (or click "Add a New App" and name it, e.g. "StoreSight IQ").
+  #   4. Copy the **Consumer Key** — that is your TICKETMASTER_API_KEY.
+  #
+  # Then store it as a Databricks SECRET (never a literal) and put the reference
+  # here as "<scope>/<key>", e.g. "storesight-<short_code>/ticketmaster_api_key":
+  #   databricks secrets create-scope storesight-<short_code> -p <profile>
+  #   databricks secrets put-secret storesight-<short_code> ticketmaster_api_key -p <profile>
+  ticketmaster_secret: ""

@@ -1,0 +1,79 @@
+# Databricks App Configuration for StoreSight IQ
+# Docs: https://docs.databricks.com/aws/en/dev-tools/databricks-apps/
+#
+# IMPORTANT: Before deploying, build the frontend:
+#   cd frontend && npm install && npm run build
+#
+# The FastAPI backend serves the built React frontend from frontend/dist/
+
+command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+env:
+  # === Databricks SQL Warehouse ===
+  # Links to a SQL Warehouse resource configured in the app
+  - name: "DATABRICKS_WAREHOUSE_ID"
+    valueFrom: "sql_warehouse"
+
+  # === Unity Catalog ===
+  - name: "CATALOG_NAME"
+    value: "publix_labor_forecast"
+  - name: "SCHEMA_NAME"
+    value: "storesight_iq_publix"
+
+  # === Lakebase (State Persistence) ===
+  # Project-based Lakebase: attaching the "postgres" resource auto-injects the
+  # standard libpq PG* vars (PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD/PGSSLMODE),
+  # which config/database.py prefers. The LAKEBASE_* values are fallbacks for the
+  # legacy instance-based SDK path.
+  - name: "LAKEBASE_INSTANCE_NAME"
+    value: "publix-build-studio-lb"
+  - name: "LAKEBASE_DATABASE_NAME"
+    value: "databricks_postgres"
+
+  # === Model Serving Endpoint Names ===
+  # Note: These are just the endpoint names. Authentication uses DATABRICKS_TOKEN
+  # which is automatically provided when serving endpoints are added as resources.
+  - name: "DEMAND_FORECAST_ENDPOINT"
+    value: "storesight-publix-demand-forecast"
+  - name: "LABOR_OPTIMIZER_ENDPOINT"
+    value: "storesight-publix-labor-optimizer"
+  - name: "INVENTORY_PREDICTOR_ENDPOINT"
+    value: "storesight-publix-inventory-predictor"
+  - name: "PREP_SCHEDULER_ENDPOINT"
+    value: "storesight-publix-prep-scheduler"
+
+  # === Genie Space ===
+  # A plain literal space id (NOT a valueFrom resource). notebook 06 creates the
+  # Genie space and `accelerator/wire_app.py` writes the id here at wiring time.
+  # Empty is safe — the Compare page's embedded Genie panel stays hidden until
+  # the id is populated.
+  - name: "GENIE_SPACE_ID"
+    value: "01f1bcae37e91a5e93137da4b5860840"
+
+  # Workspace/org id used to build the Genie embed iframe URL (?o=...).
+  # DATABRICKS_HOST is auto-injected by the Apps platform at runtime.
+  - name: "WORKSPACE_ID"
+    value: "7405614888461357"
+
+  # === External APIs (OPTIONAL) ===
+  # Ticketmaster Discovery API powers the "local events" demand signal on the
+  # Forecast page + Operations alerts. It is OPTIONAL — with no key the app
+  # degrades gracefully (events enrichment just returns empty).
+  # NEVER commit a literal key. The accelerator wires this from a Databricks
+  # secret (customer_config.yaml -> external_apis.ticketmaster_secret):
+  #   valueFrom: "<secret-scope-resource>"   (generate.py sets this)
+  # Get a free key at https://developer.ticketmaster.com/explore/. Leave unset to disable.
+  - name: "TICKETMASTER_API_KEY"
+    valueFrom: "ticketmaster_secret"
+
+# === Resources ===
+# Configure these in the Databricks Apps UI when deploying
+# resources:
+#   - name: "sql_warehouse"
+#     type: "sql_warehouse"
+#     description: "SQL Warehouse for querying Unity Catalog tables"
+
+#   - name: "ticketmaster_secret"
+#     type: "secret"
+#     description: "Ticketmaster API key (optional)"
+#     required: false

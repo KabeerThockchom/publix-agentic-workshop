@@ -1,0 +1,175 @@
+# =============================================================================
+# StoreSight IQ — QSR Accelerator — Databricks Asset Bundle (DAB)
+# =============================================================================
+# One command deploys the whole solution into the target workspace:
+#
+#   databricks bundle deploy -p <your-cli-profile>
+#   databricks bundle run    storesight_setup -p <your-cli-profile>   # data→train→serve→genie→stream
+#
+# `-p <profile>` selects the ~/.databrickscfg profile from customer_config.yaml
+# (databricks.profile) — that is how the build knows WHICH workspace to target.
+# The variable defaults below are rewritten by `accelerator/generate.py` from
+# customer_config.yaml, so you normally don't hand-edit this file.
+#
+# ISOLATION: generate.py sets `bundle.name` AND the DAB target below to the
+# customer's short_code, so each customer has its own Terraform state (remote
+# root_path + local .databricks/bundle/<target>/ cache). Deploy each customer
+# from a SEPARATE working dir. NEVER share a target across customers or a
+# `bundle deploy` will reconcile+DELETE the other's schema/app/jobs.
+#
+# After `bundle run`, the remaining wiring is automated by:
+#   python accelerator/wire_app.py -p <your-cli-profile>
+# which does (no UI): UC GRANTs to the app SP, the Lakebase Postgres grant,
+# attaching the 4 serving endpoints + secret + Lakebase to the app, setting
+# GENIE_SPACE_ID, warming endpoints, external embedding, and apps start/deploy.
+# See accelerator/WORKSPACE_STEPS.md. Do NOT `bundle deploy` after wiring — it
+# reconciles the app to the resources declared here and wipes the rest.
+#
+# To tear the demo down (rebuild from zero / clean up):
+#   databricks bundle run     storesight_teardown -p <your-cli-profile>
+#   databricks bundle destroy  -p <your-cli-profile> --auto-approve
+# =============================================================================
+
+bundle:
+  name: storesight-iq-publix
+
+# Include the BUILT frontend (frontend/dist) in the deployed bundle even though it
+# is gitignored as a build artifact. `bundle deploy` honors .gitignore (NOT
+# .databricksignore), so without this the app ships with no UI and serves raw API
+# JSON at "/". Build first: cd frontend && npm run build.
+sync:
+  include:
+    - frontend/dist/**
+
+variables:
+  catalog:
+    description: Unity Catalog (must already exist)
+    default: publix_labor_forecast
+  schema:
+    description: Schema created by the setup job
+    default: storesight_iq_publix
+  resource_prefix:
+    description: Prefix for all serving endpoints / lakebase / app
+    default: storesight-publix
+  warehouse_id:
+    description: Existing SQL Warehouse id the app queries UC through
+    default: 77b39aff2611a764
+  app_name:
+    description: Databricks Apps name (workspace-unique)
+    default: storesight-iq-publix
+
+targets:
+  # Demo target — NO `mode: development` on purpose: dev mode auto-prefixes
+  # resource names (dev_<user>_…), which creates a phantom prefixed schema while
+  # the notebooks + app use the clean `${var.schema}`. Clean, stable names are
+  # what you want when standing a demo up in a workspace.
+  publix:
+    default: true
+    workspace:
+      # generate.py sets this from customer_config.yaml (databricks.workspace_host).
+      # Auth/profile is supplied on the CLI: `-p <profile>` (databricks.profile).
+      host: https://adb-7405614888461357.17.azuredatabricks.net
+      # Fixed root so redeploys are stable (dev mode would isolate per-user).
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}
+
+resources:
+  # --- Unity Catalog schema (idempotent; notebook 01 also CREATE SCHEMA IF NOT EXISTS) ---
+  schemas:
+    storesight_schema:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: "StoreSight IQ QSR accelerator — synthetic store-ops data + ML feature tables"
+
+  # --- Setup job: runs the 7 notebooks in order on serverless compute ---
+  # Each task passes the naming (widgets) + the synced domain.json path. Notebooks
+  # read taxonomy from domain.json, so they are never edited per customer.
+  jobs:
+    storesight_setup:
+      name: "[${var.resource_prefix}] StoreSight IQ — Setup (data · ML · serving · genie · streaming)"
+      tasks:
+        - task_key: generate_data
+          notebook_task:
+            notebook_path: ./notebooks/01_generate_data_and_streaming.py
+            base_parameters: &nbparams
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              resource_prefix: ${var.resource_prefix}
+              # nb06 (Genie space) requires a warehouse id for create-space; the
+              # other notebooks ignore it. Passed to every task via the anchor.
+              warehouse_id: ${var.warehouse_id}
+              domain_json_path: ${workspace.file_path}/config/domain.json
+        - task_key: train_demand_forecast
+          depends_on: [{ task_key: generate_data }]
+          notebook_task:
+            notebook_path: ./notebooks/02_train_demand_forecast_model.py
+            base_parameters: *nbparams
+        - task_key: train_labor_optimizer
+          depends_on: [{ task_key: generate_data }]
+          notebook_task:
+            notebook_path: ./notebooks/03_train_labor_optimization_model.py
+            base_parameters: *nbparams
+        - task_key: train_inventory_predictor
+          depends_on: [{ task_key: generate_data }]
+          notebook_task:
+            notebook_path: ./notebooks/04_train_inventory_prediction_model.py
+            base_parameters: *nbparams
+        - task_key: train_prep_scheduler
+          depends_on: [{ task_key: generate_data }]
+          notebook_task:
+            notebook_path: ./notebooks/05_train_prep_schedule_model.py
+            base_parameters: *nbparams
+        - task_key: setup_genie_space
+          depends_on:
+            - { task_key: train_demand_forecast }
+            - { task_key: train_labor_optimizer }
+            - { task_key: train_inventory_predictor }
+            - { task_key: train_prep_scheduler }
+          notebook_task:
+            notebook_path: ./notebooks/06_setup_genie_space.py
+            base_parameters: *nbparams
+        - task_key: setup_streaming_job
+          depends_on: [{ task_key: setup_genie_space }]
+          notebook_task:
+            notebook_path: ./notebooks/07_setup_streaming_job.py
+            base_parameters: *nbparams
+
+    # --- Teardown job: removes everything the setup job created ---------------
+    # Idempotent (IF EXISTS / ignore-missing). Deletes the imperatively-created
+    # resources the bundle doesn't own: the 4 serving endpoints, the streaming
+    # job + simulator notebook, the Genie space, and the UC schema (CASCADE →
+    # tables, views, MVs, registered models). Run this, THEN `bundle destroy`
+    # (which removes the setup job, this teardown job, the app, and the empty
+    # schema resource) for a clean workspace. See setup/README.md.
+    #   databricks bundle run storesight_teardown -p <profile>
+    #   databricks bundle destroy -p <profile> --auto-approve
+    storesight_teardown:
+      name: "[${var.resource_prefix}] StoreSight IQ — Teardown (endpoints · genie · streaming · schema)"
+      tasks:
+        - task_key: teardown
+          notebook_task:
+            notebook_path: ./setup/teardown.py
+            base_parameters: *nbparams
+
+  # --- The Databricks App (FastAPI + built React frontend) ---
+  # Build the frontend first: cd frontend && npm run build
+  apps:
+    storesight_app:
+      name: ${var.app_name}
+      description: "StoreSight IQ — real-time QSR store-operations intelligence"
+      source_code_path: ./
+      resources:
+        # ONLY the warehouse is declared here. The 4 serving endpoints, the
+        # secret, and the Lakebase database are attached AFTER the setup job by
+        # `accelerator/wire_app.py` (via `apps create-update`), because:
+        #   1. Circular dep — the app can't reference serving endpoints that
+        #      don't exist yet at first `bundle deploy` ("endpoint does not
+        #      exist"); the job creates them.
+        #   2. `bundle deploy` reconciles the app to EXACTLY the resources
+        #      declared here, so it would WIPE any create-update resources. The
+        #      wiring script owns the full resource set; never `bundle deploy`
+        #      again after wiring (re-run wire_app.py if you must). See
+        #      accelerator/WORKSPACE_STEPS.md.
+        - name: sql_warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE

@@ -1,0 +1,177 @@
+# =============================================================================
+# StoreSight IQ — QSR Solution Accelerator
+# DOMAIN / TAXONOMY  (single source of truth)  — copy to domain.yaml, then fill
+# =============================================================================
+#
+# WHY THIS FILE EXISTS
+#   On an earlier build, the product taxonomy was duplicated in
+#   services/model_serving.py AND in the training notebooks (04, 05). The ML
+#   feature contract had to be kept in sync BY HAND, which is fragile. Here it
+#   lives in ONE place; the generator projects it into both the backend and the
+#   notebooks so the contract cannot drift.
+#
+# WHAT IT DRIVES
+#   - services/demo_data.py       (ingredients, stores, prepped-item state)
+#   - services/model_serving.py   (subtype table, category encoding, dayparts)
+#   - notebooks/01 (data gen), 04 (inventory model), 05 (prep-scheduler model)
+#   - the 5th UI surface (the "prep/production scheduler" page)
+#
+# This is domain modeling: the accelerator proposes QSR-typical defaults, but a
+# human confirms/edits the taxonomy for the specific customer.
+# =============================================================================
+
+# ---- The 5th vertical: the "prep / production scheduler" abstraction --------
+# Generalizes any chain's make-ahead concept (bake bread, bake pizza, fry
+# chicken, proof biscuits, press tortillas...) to ANY QSR production step.
+prep:
+  # UI label for the surface and its nav item.
+  page_title: "Prep Scheduler"
+  emoji: "🍽️"
+  # The thing that gets produced ahead of demand (singular + plural nouns).
+  item_noun: "prep batch"
+  item_noun_plural: "prep batches"
+  # The production verb: bake | fry | proof | press | grill | assemble ...
+  verb: "prep"
+  # The unit the scheduler recommends quantities in.
+  unit: "batches"
+  # Product subtypes the scheduler optimizes. Each MUST have a unique integer id
+  # (this becomes the ML feature `subtype_id`). prep_time_min + freshness_hours
+  # + popularity are the model features; popularity should sum to ~1.0.
+  subtypes:
+    - key: subtype_a
+      id: 1
+      label: "Reference Subtype A"
+      prep_time_min: 14
+      freshness_hours: 6
+      popularity: 0.50
+    - key: subtype_b
+      id: 2
+      label: "Reference Subtype B"
+      prep_time_min: 12
+      freshness_hours: 8
+      popularity: 0.30
+    - key: subtype_c
+      id: 3
+      label: "Reference Subtype C"
+      prep_time_min: 16
+      freshness_hours: 5
+      popularity: 0.20
+
+# ---- Store operating window -------------------------------------------------
+# `close` is an EXCLUSIVE upper bound (range()), so close: 24 -> last hour 23.
+operating_hours:
+  open: 10
+  close: 24
+
+# ---- Dayparts for the prep-scheduler model ---------------------------------
+# Non-overlapping [start, end) hour ranges. `encoded` is the ML feature value;
+# `factor` is the share of daily traffic in that daypart (should sum to ~1.0).
+dayparts:
+  - name: lunch
+    start: 10
+    end: 14
+    encoded: 1
+    factor: 0.28
+  - name: afternoon
+    start: 14
+    end: 17
+    encoded: 2
+    factor: 0.14
+  - name: dinner
+    start: 17
+    end: 21
+    encoded: 3
+    factor: 0.40
+  - name: late_night
+    start: 21
+    end: 24
+    encoded: 4
+    factor: 0.18
+
+# ---- Rush window (prep-scheduler `is_rush_hour` feature) --------------------
+# Inclusive hour range considered the peak rush. MUST stay consistent with the
+# dayparts above (the peak daypart) — model_serving.py + notebook 05 read this.
+rush_hours:
+  start: 17
+  end: 20
+
+# ---- Labor-model daypart flags ---------------------------------------------
+# The labor optimizer uses boolean is_<name> flags per hour. [start, end)
+labor_dayparts:
+  breakfast: [6, 10]
+  lunch: [11, 14]
+  dinner: [17, 20]
+
+# ---- Ingredient categories + integer encoding -------------------------------
+# Encoding is a hard ML feature contract (notebook 04 <-> model_serving.py).
+# Keys are the category names used in the `ingredients` list below.
+ingredient_categories:
+  main: 1
+  cheese: 2
+  meat: 3
+  veggie: 4
+  sauce: 5
+  beverage: 6
+  packaging: 7
+
+# ---- Ingredients (inventory + inventory-predictor model) --------------------
+# id: unique int. category: one of ingredient_categories keys.
+# unit: units|lbs|oz. par: target stock level. cost_per_unit: USD.
+ingredients:
+  - {id: 1,  name: "Reference Main A",   category: main,      unit: units, par: 80, cost_per_unit: 0.45}
+  - {id: 2,  name: "Reference Main B",   category: main,      unit: units, par: 30, cost_per_unit: 0.40}
+  - {id: 10, name: "Reference Cheese",   category: cheese,    unit: lbs,   par: 40, cost_per_unit: 3.20}
+  - {id: 20, name: "Reference Meat",     category: meat,      unit: lbs,   par: 25, cost_per_unit: 4.00}
+  - {id: 30, name: "Reference Veggie",   category: veggie,    unit: lbs,   par: 20, cost_per_unit: 2.00}
+  - {id: 40, name: "Reference Sauce",    category: sauce,     unit: oz,    par: 96, cost_per_unit: 0.05}
+  - {id: 50, name: "Reference Beverage", category: beverage,  unit: units, par: 200, cost_per_unit: 0.10}
+  - {id: 60, name: "Reference Packaging",category: packaging, unit: units, par: 150, cost_per_unit: 0.08}
+
+# ---- Sales channels (order mix on Operations + ChannelChart) ----------------
+# key: internal id used by the backend. label: UI display. share: fraction of
+# orders (should sum to ~1.0). Typical QSR: in_store/delivery/app/third_party.
+sales_channels:
+  - {key: in_store,    label: "In-Store",  share: 0.35}
+  - {key: delivery,    label: "Delivery",  share: 0.30}
+  - {key: app,         label: "Mobile App", share: 0.20}
+  - {key: third_party, label: "3rd Party", share: 0.15}
+
+# ---- Inventory supplier label (Inventory page) ------------------------------
+supplier_name: "Regional Distribution Center"
+
+# ---- Customer-facing menu/product names (demo transaction line items) -------
+menu_items:
+  - "Signature Combo"
+  - "Classic"
+  - "Veggie"
+  - "Deluxe"
+  - "House Special"
+  - "Kids Meal"
+
+# ---- Store fleet ------------------------------------------------------------
+# id: unique int. lat/lng drive the 3D regional MapView (use real geocodes for
+# a realistic demo). sqft: store size. opened: YYYY-MM-DD.
+# NUM_STORES for synthetic generation is inferred from this list length.
+stores:
+  - {id: 1, name: "Downtown - Main St",   address: "100 Main St",       city: "San Jose",      state: CA, lat: 37.3352, lng: -121.8907, sqft: 1400, opened: "2017-03-15"}
+  - {id: 2, name: "Midtown - 2nd Ave",    address: "220 2nd Ave",       city: "San Jose",      state: CA, lat: 37.3701, lng: -121.8635, sqft: 1300, opened: "2018-06-20"}
+  - {id: 3, name: "Westside - El Camino",  address: "571 El Camino",     city: "Mountain View", state: CA, lat: 37.3894, lng: -122.0947, sqft: 1250, opened: "2019-08-05"}
+  - {id: 4, name: "Eastside - Berryessa",  address: "1737 Berryessa Rd", city: "San Jose",      state: CA, lat: 37.3701, lng: -121.8635, sqft: 1350, opened: "2016-01-10"}
+  - {id: 5, name: "Bayshore - 43rd Ave",   address: "9 43rd Ave",        city: "San Mateo",     state: CA, lat: 37.5378, lng: -122.3033, sqft: 1300, opened: "2017-11-12"}
+  - {id: 6, name: "Northgate - Cedar",     address: "39724 Cedar Blvd",  city: "Newark",        state: CA, lat: 37.5030, lng: -122.0233, sqft: 1200, opened: "2019-02-28"}
+  # The real customer fleet (earlier builds used ~25 geocoded stores) is
+  # captured here by the interview — lat/lng drive the 3D regional MapView.
+
+# ---- Synthetic data generation knobs (notebook 01) --------------------------
+data_generation:
+  days_of_history: 365
+  transactions_per_day_avg: 200
+
+# ---- Genie natural-language sample questions --------------------------------
+# Domain-flavored starters shown in the embedded Genie space.
+genie_sample_questions:
+  - "Which stores had the highest sales last week?"
+  - "Show me labor cost as a percentage of revenue by store."
+  - "Which ingredients are most often below par level?"
+  - "What are the peak transaction hours across the fleet?"
+  - "Compare weekend vs weekday revenue for the top 5 stores."

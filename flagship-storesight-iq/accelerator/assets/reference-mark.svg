@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NEUTRAL PLACEHOLDER circular mark (nav avatar / favicon / loader).
+  Replace with the customer's icon: set customer_config.yaml brand.logo_circle_path.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="StoreSight IQ">
+  <circle cx="32" cy="32" r="32" fill="#2D6BE0"/>
+  <path d="M20 33l7 7 16-17" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

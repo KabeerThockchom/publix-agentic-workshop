@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+ * BRAND PALETTE — single source of truth for the re-skin.
+ * generate.py rewrites ONLY this block from customer_config.yaml (brand.*).
+ * Tailwind's `brand-*` tokens and the gradients below reference these vars.
+ * Default values below are the NEUTRAL reference-QSR palette (not a real brand).
+ * --brand-primary-rgb is the primary as "r, g, b" for rgba() (glow shadow).
+ * ============================================================================= */
+:root {
+  --brand-primary: #3E902D;
+  --brand-primary-dark: #2C6B20;
+  --brand-primary-light: #5FB048;
+  --brand-primary-rgb: 62, 144, 45;
+  --brand-secondary: #1B5E20;
+  --brand-secondary-dark: #124016;
+  --brand-secondary-light: #43A047;
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-text-primary antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-surface-secondary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Focus styles */
+*:focus-visible {
+  @apply outline-none ring-2 ring-brand-primary ring-offset-2;
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-all duration-300 ease-out;
+}
+
+.card-hover:hover {
+  @apply shadow-medium -translate-y-0.5;
+}
+
+/* Glass effect */
+.glass {
+  @apply bg-white/80 backdrop-blur-md;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-brand-primary to-brand-primary-light bg-clip-text text-transparent;
+}
+
+/* Primary brand gradient (references the brand vars — no hard-coded hex) */
+.brand-gradient {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 100%);
+}
+
+/* Secondary/accent brand gradient */
+.brand-secondary-gradient {
+  background: linear-gradient(135deg, var(--brand-secondary) 0%, var(--brand-secondary-light) 100%);
+}
+
+/* Animation utilities */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Number formatting */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Map container */
+.map-container {
+  @apply w-full h-full rounded-2xl overflow-hidden;
+}
+
+/* Chart tooltip */
+.recharts-tooltip-wrapper {
+  @apply !outline-none;
+}
+
+.custom-tooltip {
+  @apply bg-white/95 backdrop-blur-sm rounded-xl shadow-medium p-3 border border-gray-100;
+}
+
+
+
+
+

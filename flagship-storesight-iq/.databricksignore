@@ -1,0 +1,59 @@
+# Databricks sync ignore file
+# This controls what gets synced to Databricks workspace
+# Note: databricks sync respects .gitignore by default, but we override some entries here
+
+# === MUST EXCLUDE ===
+# Node modules - very large, not needed (npm install runs locally only)
+node_modules/
+frontend/node_modules/
+
+# Python virtual environments
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Git
+.git/
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Test/Coverage
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Build artifacts we don't need
+*.egg-info/
+build/
+
+# Reference folder (example code, not needed for deployment)
+reference/
+
+# Notebooks folder (run separately in Databricks, not part of app)
+notebooks/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Development files
+.env
+.envrc
+env.example
+
+# === MUST INCLUDE ===
+# The app (main.py) serves the BUILT React frontend from frontend/dist. That dir
+# is gitignored as a build artifact, so without these explicit re-includes it is
+# never synced to the workspace and the app returns raw API JSON at "/" instead
+# of the UI. Build first: cd frontend && npm run build.
+!frontend/dist/
+!frontend/dist/**
+

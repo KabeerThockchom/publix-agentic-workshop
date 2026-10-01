@@ -1,0 +1,35 @@
+# FastAPI and Server
+fastapi==0.100.0
+uvicorn==0.23.0
+python-multipart==0.0.6
+
+# Pydantic
+pydantic==2.1.0
+pydantic-settings==2.0.0
+
+# Databricks
+databricks-sdk==0.81.0
+databricks-sql-connector[pyarrow]==3.0.0
+# pyarrow must satisfy databricks-sql-connector==3.0.0 (>=14.0.1,<15.0.0);
+# 14.0.0 is one patch too low and fails app install with ResolutionImpossible.
+pyarrow==14.0.2
+
+# Database (Lakebase/PostgreSQL)
+sqlalchemy==2.0.0
+asyncpg==0.29.0
+sqlmodel==0.0.14
+
+# Data Processing
+pandas==2.0.0
+numpy==1.24.0
+
+# HTTP Client
+httpx==0.24.1
+requests==2.31.0
+
+# Environment
+python-dotenv==1.0.0
+
+# NOTE: do NOT add `uuid` here — it is a Python 3 standard-library module. The
+# PyPI `uuid` package is a Python-2-era backport that fails to build on modern
+# Python and breaks the whole app `pip install`. Use `import uuid` from stdlib.
