@@ -3,7 +3,7 @@
 -- One row per price event with store, item, and effective pricing.
 
 CREATE OR REFRESH STREAMING TABLE silver_tpr_prices
-  (CONSTRAINT valid_price EXPECT (data.Event_Id IS NOT NULL AND data.Item_Code IS NOT NULL) ON VIOLATION DROP ROW)
+  (CONSTRAINT valid_price EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned TPR price events with base64-decoded fields."
   CLUSTER BY (store_number, item_code)
 AS

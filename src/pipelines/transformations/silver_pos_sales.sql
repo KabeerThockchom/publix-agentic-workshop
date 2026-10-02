@@ -3,7 +3,7 @@
 -- One row per item sold (line item), with store, transaction, product, and value data.
 
 CREATE OR REFRESH STREAMING TABLE silver_pos_sales
-  (CONSTRAINT valid_transaction EXPECT (value.Basket.TransactionId IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW)
+  (CONSTRAINT valid_transaction EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned POSA sales line items, one row per item sold."
   CLUSTER BY (store_number, item_sku)
 AS
