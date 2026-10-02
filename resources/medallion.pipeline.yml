@@ -8,6 +8,8 @@ resources:
       channel: CURRENT
       libraries:
         - file:
-            path: ../src/pipelines/transformations/silver_sales.sql
+            path: ../src/pipelines/transformations/silver_pos_sales.sql
         - file:
-            path: ../src/pipelines/transformations/gold_store_item_daily.sql
+            path: ../src/pipelines/transformations/silver_tpr_prices.sql
+        - file:
+            path: ../src/pipelines/transformations/gold_store_item_daily_sales.sql
