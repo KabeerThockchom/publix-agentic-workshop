@@ -7,3 +7,4 @@ dist/
 *.tsbuildinfo
 *.pyc
 .DS_Store
+.vscode/

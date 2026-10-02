@@ -16,6 +16,7 @@ Take an idea to a governed, deployed result in one day. You build a real-time pi
 - **`labs/`** - six hand-out notebooks (run in order).
 - **`slides/`** - the Part 1 (data engineering) facilitator deck.
 - **`app/`** - Store Pulse, the reference "art of the possible" app (FastAPI + React: lakehouse reads, Lakebase writes, Genie).
+- **`flagship-storesight-iq/`** - the finished StoreSight IQ app (the real-time labor-forecasting opener) that `FLAGSHIP_PROMPTS.md` rebuilds layer by layer. Reference source; re-point its `app.yaml` IDs to your own workspace.
 - **`PROMPTS.md`** - the Genie Code prompt playbook. **`HANDOFF.md`** - the participant hand-out.
 - **`SETUP_SERVICE_PRINCIPAL.md`** - one-time admin setup for the Zerobus publisher's service principal (participants only need their workspace login).
 - **`FLAGSHIP_PROMPTS.md`** - the "art of the possible" build: StoreSight IQ (real-time labor forecasting) decomposed into 7 Genie Code prompts, one per layer (UC → Zerobus → SDP → 4 ML models → Genie → Lakebase → App Builder).
@@ -63,3 +64,9 @@ reference / answer key: if a live generation drifts, open the matching notebook 
 ## The loop, every time
 
 Describe → Generate → **Review** (read the plan, open a PR, keep a human in the loop) → Deploy.
+
+## Take-home - Build Studio (spec-driven)
+
+Keep building after the workshop with **Build Studio**: an agentic "vibe-to-value" app where you describe a problem, it writes a spec, and it builds the full stack from that spec (Zerobus → SDP → Genie → Lakebase → Databricks App) - the spec-driven way.
+
+Repo: **https://github.com/KabeerThockchom/build-studio** (`master`). Clone it, point it at your workspace, and deploy as a Databricks App.
