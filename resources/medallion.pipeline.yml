@@ -12,4 +12,4 @@ resources:
         - file:
             path: ../src/pipelines/transformations/silver_tpr_prices.sql
         - file:
-            path: ../src/pipelines/transformations/gold_store_item_daily_sales.sql
+            path: ../src/pipelines/transformations/gold_store_item_daily.sql

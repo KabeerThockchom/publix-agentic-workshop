@@ -2,7 +2,7 @@
 -- Aggregates silver_pos_sales to daily units, revenue, and transaction counts.
 -- One row per store-item-date combination.
 
-CREATE OR REFRESH MATERIALIZED VIEW gold_store_item_daily_sales
+CREATE OR REFRESH MATERIALIZED VIEW gold_store_item_daily
   COMMENT "Daily sales by store, item, and date. Aggregated from POSA line items."
 AS
 SELECT

@@ -197,8 +197,9 @@ GROUP BY pos.store_number, pos.sku, pos.item_name, pos.item_category, CAST(pos.e
 # MAGIC > ```
 # MAGIC > Show me the resources section of a Databricks Asset Bundle for a Spark Declarative
 # MAGIC > Pipeline named "publix-medallion" that targets catalog publix_agentic_workshop and
-# MAGIC > schema medallion, with serverless: true, and references the two SQL files:
-# MAGIC > ../src/pipelines/transformations/silver_sales.sql and
+# MAGIC > schema medallion, with serverless: true, and references the three SQL files:
+# MAGIC > ../src/pipelines/transformations/silver_pos_sales.sql,
+# MAGIC > ../src/pipelines/transformations/silver_tpr_prices.sql, and
 # MAGIC > ../src/pipelines/transformations/gold_store_item_daily.sql
 # MAGIC > ```
 # MAGIC
@@ -215,24 +216,27 @@ GROUP BY pos.store_number, pos.sku, pos.item_name, pos.item_category, CAST(pos.e
 
 # COMMAND ----------
 
-# reference - the DAB resources block for this pipeline
-# (shown for context; you may have customized variables)
-
-resources:
-  pipelines:
-    medallion:
-      name: "[${bundle.target}] publix-medallion"
-      catalog: ${var.catalog}
-      schema: medallion
-      serverless: true
-      channel: CURRENT
-      libraries:
-        - file:
-            path: ../src/pipelines/transformations/silver_pos_sales.sql
-        - file:
-            path: ../src/pipelines/transformations/silver_tpr_prices.sql
-        - file:
-            path: ../src/pipelines/transformations/gold_store_item_daily.sql
+# MAGIC %md
+# MAGIC ### Reference - the DAB resources block for this pipeline
+# MAGIC (shown for context; you may have customized variables)
+# MAGIC
+# MAGIC ```yaml
+# MAGIC resources:
+# MAGIC   pipelines:
+# MAGIC     medallion:
+# MAGIC       name: "[${bundle.target}] publix-medallion"
+# MAGIC       catalog: ${var.catalog}
+# MAGIC       schema: medallion
+# MAGIC       serverless: true
+# MAGIC       channel: CURRENT
+# MAGIC       libraries:
+# MAGIC         - file:
+# MAGIC             path: ../src/pipelines/transformations/silver_pos_sales.sql
+# MAGIC         - file:
+# MAGIC             path: ../src/pipelines/transformations/silver_tpr_prices.sql
+# MAGIC         - file:
+# MAGIC             path: ../src/pipelines/transformations/gold_store_item_daily.sql
+# MAGIC ```
 
 # COMMAND ----------
 

@@ -39,7 +39,7 @@ spark.sql(f'CREATE SCHEMA IF NOT EXISTS {CATALOG}.medallion COMMENT "Silver (str
 # Create a Volume for landing Kafka-envelope JSON files
 VOLUME_NAME = f"{CATALOG}.bronze.kafka_landing"
 spark.sql(f"CREATE VOLUME IF NOT EXISTS {VOLUME_NAME}")
-VOLUME_PATH = f"/Volumes/{VOLUME_NAME}"
+VOLUME_PATH = f"/Volumes/{CATALOG}/bronze/kafka_landing"
 print(f"Volume path: {VOLUME_PATH}")
 
 # COMMAND ----------
@@ -167,7 +167,7 @@ from uuid import uuid4
 import random
 
 CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
-VOLUME_PATH = f"/Volumes/{CATALOG}.bronze.kafka_landing"
+VOLUME_PATH = f"/Volumes/{CATALOG}/bronze/kafka_landing"
 
 # Product catalog and store numbers (same as src/setup/publix_data_gen.py)
 PRODUCTS = [
@@ -347,7 +347,7 @@ from pyspark.sql.functions import input_file_name, current_timestamp
 CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
 
 # Load POSA sales events via Auto Loader
-sales_path = f"/Volumes/{CATALOG}.bronze.kafka_landing/sales"
+sales_path = f"/Volumes/{CATALOG}/bronze/kafka_landing/sales"
 df_sales = (spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format", "json")
@@ -363,7 +363,7 @@ df_sales = (spark.readStream
 print(f"Auto Loader configured for {sales_path}")
 
 # Load TPR price events via Auto Loader
-prices_path = f"/Volumes/{CATALOG}.bronze.kafka_landing/prices"
+prices_path = f"/Volumes/{CATALOG}/bronze/kafka_landing/prices"
 df_prices = (spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format", "json")
@@ -439,7 +439,7 @@ spark.sql(f"SELECT value.Basket.StoreNumber, value.TicketNumber, value.Transacti
 # MAGIC
 # MAGIC You now have (in **your own** catalog):
 # MAGIC - Catalog: `publix_agentic_<yourname>`
-# MAGIC - Volume: `/Volumes/{catalog}.bronze.kafka_landing/` with `sales/` and `prices/` subdirectories
+# MAGIC - Volume: `/Volumes/{catalog}/bronze/kafka_landing/` with `sales/` and `prices/` subdirectories
 # MAGIC - Schemas: `bronze` (Auto Loader landing), `medallion` (silver + gold)
 # MAGIC - Tables:
 # MAGIC   - `bronze.pos_sales_raw` - POSA sales events (Kafka envelope with nested Basket)
