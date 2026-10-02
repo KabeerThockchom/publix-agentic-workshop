@@ -121,28 +121,26 @@ Kept: the Build Studio app (the take-home), the **Zerobus service principal** `p
 **Do:** Open Genie Code, paste the prompt (swap `<yourname>` for your name), read the DDL it generates out loud, then Run. Tell participants to do the same with their name.
 **Prompt:**
 > Create the Unity Catalog foundation for a Publix real-time sales workshop.
-> IMPORTANT: bronze lands data RAW - use these EXACT column types, do not "improve" them
-> (silver will cast timestamps and decimals later). Keep timestamps as STRING here.
-> - Catalog `publix_agentic_<yourname>` (e.g. `publix_agentic_<yourname>`)
+> IMPORTANT: These are raw Kafka envelopes - do NOT flatten them (silver will explode and decode later).
+> - Catalog `publix_agentic_<yourname>`
 > - Schemas: `bronze` (raw ingest), `medallion` (silver + gold)
-> - Bronze table `bronze.sales_events` (USING DELTA, enable Change Data Feed), exactly:
->   event_id STRING, store_number INT, event_timestamp STRING, item_id INT,
->   item_name STRING, item_category STRING, quantity_sold INT, unit_price DOUBLE,
->   total_amount DOUBLE, cashier_id STRING, transaction_id STRING, ingestion_time STRING
-> - Bronze table `bronze.price_updates` (USING DELTA, enable Change Data Feed), exactly:
->   event_id STRING, event_timestamp STRING, item_id INT, item_name STRING,
->   old_price DOUBLE, new_price DOUBLE, effective_date STRING, ingestion_time STRING
+> - Bronze table `bronze.pos_sales_raw` (USING DELTA, enable Change Data Feed): Kafka envelope structure
+>   with nested value.Basket.BasketItems array (Gtin, Sku, Name, FamilyGroup, Quantity, UnitPrice, TotalPrice)
+> - Bronze table `bronze.price_updates_raw` (USING DELTA, enable Change Data Feed): Kafka envelope with
+>   base64-encoded data fields (Event_Timestamp, Effective_Date, Selling_Price, Deal_Price)
+> - Create a Volume `bronze.kafka_landing` to stage JSON files for Auto Loader
 > Show me the DDL, then run it.
 
-**Why pin the types:** the Zerobus publisher encodes JSON to the table's exact schema. If Genie Code makes `item_id` a STRING or timestamps a TIMESTAMP, the publisher fails with `Record decoder/encoder error ... expected a string`. Bronze stays raw; silver casts.
+**Why keep nested + base64:** Auto Loader lands raw JSON from Kafka topics exactly as-is. Silver is where we explode nested arrays and decode base64 fields. This preserves the full fidelity of the source systems (POSA and TPR) - if the source changes, we see it.
 
-**Verify:** Catalog Explorer -> `publix_agentic_workshop` -> you see `bronze` and `medallion`, and under `bronze` both tables with the right columns. Point at the Change Data Feed property.
+**Verify:** Catalog Explorer -> `publix_agentic_<yourname>` -> you see `bronze` and `medallion`, under `bronze` see both `pos_sales_raw` and `price_updates_raw` tables, and the `kafka_landing` Volume. Point at the Change Data Feed property on the tables.
 
 **Then grant the publisher SP (do this now, or Step 2 will 401):** the Zerobus publisher writes as the shared `publix-zerobus-publisher` service principal. You **own** the catalog you just made, so you grant that SP write on your own bronze schema (the SP app id is public - share it with the room). Paste into SQL Editor (or ask Genie Code to run it), with your catalog name:
 ```
 GRANT USE CATALOG ON CATALOG publix_agentic_<yourname> TO `<zerobus-sp-app-id>`;
 GRANT USE SCHEMA  ON SCHEMA  publix_agentic_<yourname>.bronze TO `<zerobus-sp-app-id>`;
-GRANT SELECT, MODIFY ON SCHEMA publix_agentic_<yourname>.bronze TO `<zerobus-sp-app-id>`;
+GRANT INSERT ON TABLE publix_agentic_<yourname>.bronze.pos_sales_raw TO `<zerobus-sp-app-id>`;
+GRANT INSERT ON TABLE publix_agentic_<yourname>.bronze.price_updates_raw TO `<zerobus-sp-app-id>`;
 ```
 `MODIFY` = write. Everyone grants the **same** SP on their **own** catalog (no admin rights, no per-person SP needed). Same grant is baked into `notebook_1` Part 4. **Say:** "Streaming ingest runs as a service identity, not as me - so I give that identity permission to write to my catalog, once."
 
@@ -157,15 +155,17 @@ GRANT SELECT, MODIFY ON SCHEMA publix_agentic_<yourname>.bronze TO `<zerobus-sp-
 > Build a Python Zerobus publisher for Databricks. It should:
 > - Use the Zerobus Ingest SDK (databricks-zerobus-ingest-sdk)
 > - Connect to the workspace Zerobus endpoint, auth via service principal (client id + secret from env)
-> - Define two streams: `publix_agentic_workshop.bronze.sales_events` and `bronze.price_updates`
-> - For 60s publish synthetic events: 3-6 sales/sec across 8 stores and 6 Publix products, occasional price updates
+> - Define two streams: `publix_agentic_<yourname>.bronze.pos_sales_raw` (POSA Kafka envelope with nested Basket)
+>   and `bronze.price_updates_raw` (TPR Kafka envelope with base64-encoded fields)
+> - For 60s publish synthetic events: 3-6 POSA sales/sec (nested Basket with 1-8 items per store),
+>   occasional TPR price updates (base64-encode Selling_Price and Effective_Date)
 > - Fire-and-forget (`ingest_record_nowait`), flush + close cleanly
 
 **Run (laptop, the only command you type live - in the terminal from the uv Setup, venv active + env vars set):**
-`DURATION_SECONDS=30 python src/zerobus/publisher.py`
+`WORKSHOP_CATALOG=publix_agentic_<yourname> DURATION_SECONDS=30 python src/zerobus/publisher.py`
 It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `source .venv/bin/activate` and re-export first.)
 
-**Verify (in the UI):** Catalog Explorer -> `bronze.sales_events` -> **Sample Data** tab, refresh -> rows are landing. Proven live before: bronze went 363 -> 497. For a number on screen, open **SQL Editor** and run `SELECT count(*), max(ingestion_time) FROM publix_agentic_workshop.bronze.sales_events` before and after - the count jumps, the timestamp is seconds-fresh.
+**Verify (in the UI):** Catalog Explorer -> `bronze.pos_sales_raw` -> **Sample Data** tab, refresh -> rows are landing (check value.Basket.StoreNumber and value.Basket.BasketItems array). For a number on screen, open **SQL Editor** and run `SELECT count(*), COUNT(DISTINCT value.Basket.StoreNumber) as stores FROM publix_agentic_<yourname>.bronze.pos_sales_raw` before and after - the count jumps, stores match (8 distinct values).
 
 **If it 401s (`invalid_authorization_details`):** you skipped the SP grant in Step 1, or the catalog was recreated after the grant. Run the three GRANTs from Step 1, then re-run the publisher.
 
@@ -179,12 +179,13 @@ It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `sou
 **Say:** "Raw data isn't trustworthy yet. Spark Declarative Pipelines let us declare the transform and the quality rules - Databricks builds the DAG, runs it serverless, tracks lineage end to end. We describe silver and gold; Genie Code writes the SQL."
 **Do:** Paste the prompt, review the two SQL transforms. Then Workflows -> Pipelines (Lakeflow) -> Create pipeline -> Serverless -> point it at the generated SQL -> Start. (Or let Genie Code scaffold the pipeline and just hit Start in the UI.)
 **Prompt:**
-> Create a Spark Declarative Pipeline in SQL over `publix_agentic_workshop`:
-> - SILVER `medallion.silver_sales`: streaming table reading STREAM(bronze.sales_events); cast types (timestamps, decimals); EXPECT (event_id, item_id NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_id).
-> - GOLD `medallion.gold_store_item_daily`: materialized view aggregating silver by store_number, item_id, item_name, item_category, sales_date -> SUM(units_sold), SUM(revenue), COUNT(line_items).
-> Give me both SQL files and set it up as a serverless pipeline I can start.
+> Create a Spark Declarative Pipeline in SQL over `publix_agentic_<yourname>`:
+> - SILVER `medallion.silver_pos_sales`: streaming table reading STREAM(bronze.pos_sales_raw); explodes value.Basket.BasketItems to one row per line item; extracts store_number, transaction_id, event_ts, sku, item_name, item_category, quantity, unit_price, total_price; EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, sku).
+> - SILVER `medallion.silver_tpr_prices`: streaming table reading STREAM(bronze.price_updates_raw); base64-decodes Selling_Price and Effective_Date; extracts event_id, item_code, store_number, event_ts, selling_price, effective_date, deal_price; EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_code).
+> - GOLD `medallion.gold_store_item_daily`: materialized view joining silver_pos_sales with silver_tpr_prices on store and item, aggregating by store_number, sku, item_name, item_category, sales_date -> SUM(quantity) as units_sold, SUM(total_price) as revenue, AVG(selling_price) as avg_price, COUNT(*) as line_items.
+> Give me all three SQL files and set it up as a serverless pipeline I can start.
 
-**Verify (in the UI):** The Pipelines page draws the DAG bronze -> silver -> gold and turns each node green. Serverless cold start is ~3-5 min - narrate the lineage and quality-rule (dropped rows) counts while it runs. Then Catalog Explorer -> `medallion.silver_sales` count matches bronze; `gold_store_item_daily` is populated (~175 rows last run).
+**Verify (in the UI):** The Pipelines page draws the DAG bronze -> silver_pos_sales / silver_tpr_prices -> gold and turns each node green. Serverless cold start is ~3-5 min - narrate the lineage and quality-rule (dropped rows) counts while it runs. Then Catalog Explorer -> `medallion.silver_pos_sales` shows exploded line items; `gold_store_item_daily` is populated with daily aggregates by store/item/date.
 
 ---
 

@@ -49,8 +49,8 @@ reference / answer key: if a live generation drifts, open the matching notebook 
 
 1. `notebook_1_setup` - create your own catalog/schemas/tables + mock data (run first).
 2. `notebook_2_kafka_producer` - local Kafka producer (optional; laptop).
-3. `notebook_3_zerobus_genie_code` - real-time ingest, built with Genie Code.
-4. `notebook_4_sdp_medallion` - bronze -> silver -> gold with Spark Declarative Pipelines. Each participant builds the same pipeline structure in their own catalog.
+3. `notebook_3_zerobus_genie_code` - real-time POSA + TPR ingest, built with Genie Code.
+4. `notebook_4_sdp_medallion` - bronze (raw Kafka envelopes) -> silver (exploded + decoded) -> gold (daily aggregates) with Spark Declarative Pipelines. Each participant builds the same pipeline structure in their own catalog.
 5. `notebook_5_genie_spaces` - metric views + a Genie space/agent (created via the API).
 6. `notebook_6_build_ship_app` - build + ship a Databricks App, two ways: **Genie App Builder** (no-code, describe it in the UI and deploy a Serverless Micro App) or the **FastAPI+React reference** in `app/`. See `PROMPTS.md` → Notebook 6.
 

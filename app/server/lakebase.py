@@ -30,7 +30,7 @@ def is_configured() -> bool:
 # Schema holding the synced/snapshotted dashboard tables (gold + prices).
 READ_SCHEMA = os.environ.get("LAKEBASE_READ_SCHEMA", "public")
 _GOLD = f"{READ_SCHEMA}.gold_store_item_daily"
-_PRICES = f"{READ_SCHEMA}.price_updates"
+_PRICES = f"{READ_SCHEMA}.silver_tpr_prices"
 
 _reads_ok: Optional[bool] = None
 
@@ -295,25 +295,25 @@ def trend() -> list[dict[str, Any]]:
 def price_updates(limit: int = 50) -> list[dict[str, Any]]:
     rows = _query(
         f"""
-        SELECT event_timestamp, item_id, item_name, old_price, new_price, effective_date
+        SELECT event_ts_str AS event_timestamp, item_code, selling_price, deal_price, effective_date_str AS effective_date
         FROM {_PRICES}
-        ORDER BY event_timestamp DESC
+        ORDER BY event_ts_str DESC
         LIMIT %s
         """,
         (int(limit),),
     )
     out = []
     for r in rows:
-        old_p = _f(r.get("old_price"))
-        new_p = _f(r.get("new_price"))
-        pct = ((new_p - old_p) / old_p * 100.0) if old_p else 0.0
+        selling_p = _f(r.get("selling_price"))
+        deal_p = _f(r.get("deal_price"))
+        pct = ((deal_p - selling_p) / selling_p * 100.0) if selling_p else 0.0
         out.append(
             {
                 "event_timestamp": r.get("event_timestamp"),
-                "item_id": str(r.get("item_id")),
-                "item_name": r.get("item_name"),
-                "old_price": old_p,
-                "new_price": new_p,
+                "item_id": str(r.get("item_code")),
+                "item_name": r.get("item_code"),
+                "old_price": selling_p,
+                "new_price": deal_p,
                 "pct_change": round(pct, 2),
                 "effective_date": r.get("effective_date"),
             }

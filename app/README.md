@@ -14,7 +14,7 @@ Lakebase, and answers natural-language questions via Genie.
    and `.store_performance_metrics` via the SQL warehouse (`publix-workshop-wh`,
    `<warehouse-id>`) using SDK statement execution.
    *Note: Workshop participants should override the catalog in `app.yaml` to point at their own `publix_agentic_<yourname>` catalog.*
-2. **Price watch** - recent item price changes from `publix_agentic_workshop.bronze.price_updates`.
+2. **Price watch** - recent item price changes from `publix_agentic_workshop.medallion.silver_tpr_prices` or the gold aggregates.
    *Note: Workshop participants should override the catalog to point at their own `publix_agentic_<yourname>` catalog.*
 3. **Action panel** - submit refund / price_override / whatif -> INSERT into Lakebase
    `public.store_actions` (instance `<lakebase-instance>`, database `publix_app`); recent

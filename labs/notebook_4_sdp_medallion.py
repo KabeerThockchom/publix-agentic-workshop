@@ -54,51 +54,90 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC %md
 # MAGIC ## Layer 1: Silver (cleaned, typed facts)
 # MAGIC
-# MAGIC Your first job is to build a streaming table that:
-# MAGIC - Reads bronze.sales_events as a stream
-# MAGIC - Types columns: timestamp, numeric amounts, quantities
-# MAGIC - Drops rows with missing event_id or item_id (quality gate)
-# MAGIC - Clusters by store_number and item_id for query performance
+# MAGIC Your first job is to build TWO streaming tables:
+# MAGIC
+# MAGIC ### silver_pos_sales
+# MAGIC - Reads bronze.pos_sales_raw as a stream (Kafka envelope with nested Basket)
+# MAGIC - Explodes BasketItems array to one row per line item
+# MAGIC - Extracts store, transaction, and item details from the nested structure
+# MAGIC - Drops rows with missing SKU or quantity (quality gate)
+# MAGIC - Clusters by store_number and sku for query performance
+# MAGIC
+# MAGIC ### silver_tpr_prices
+# MAGIC - Reads bronze.price_updates_raw as a stream (Kafka envelope with base64 fields)
+# MAGIC - Base64-decodes the Selling_Price and Effective_Date fields
+# MAGIC - Types fields as appropriate (timestamp, decimal for price)
+# MAGIC - Clusters by store_number and item_code
 # MAGIC
 # MAGIC > **🧞 Prompt for Genie Code**
 # MAGIC > ```
-# MAGIC > Build a streaming table called silver_sales in publix_agentic_<yourname>.medallion (use YOUR catalog)
-# MAGIC > that reads from bronze.sales_events and:
-# MAGIC > - Casts event_timestamp STRING -> TIMESTAMP (bronze is raw; silver casts)
-# MAGIC > - Casts quantity_sold to INT
-# MAGIC > - Casts unit_price DOUBLE -> DECIMAL(10, 2)
-# MAGIC > - Casts total_amount DOUBLE -> DECIMAL(12, 2)
-# MAGIC > - Keeps item_id as INT (never STRING)
-# MAGIC > - Includes a constraint that drops rows where event_id or item_id is null
-# MAGIC > - Uses liquid clustering on store_number and item_id
+# MAGIC > Build a streaming table called silver_pos_sales in publix_agentic_<yourname>.medallion that:
+# MAGIC > - Reads from STREAM(bronze.pos_sales_raw)
+# MAGIC > - Explodes value.Basket.BasketItems to one row per line item
+# MAGIC > - Extracts: store_number (value.Basket.StoreNumber), transaction_id (value.Basket.TransactionId),
+# MAGIC >   event_ts (CAST(value.TransactionDateTime to TIMESTAMP)), sku (Sku), item_name (Name),
+# MAGIC >   item_category (FamilyGroup), quantity (Quantity), unit_price (UnitPrice), total_price (TotalPrice)
+# MAGIC > - Includes EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW
+# MAGIC > - Uses CLUSTER BY (store_number, sku)
 # MAGIC > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
 # MAGIC > ```
 # MAGIC
-# MAGIC Genie Code will write the SQL. Review it against the reference below, then save it
-# MAGIC to `src/pipelines/transformations/silver_sales.sql` in your repo.
+# MAGIC > **🧞 Prompt for Genie Code** (for silver_tpr_prices)
+# MAGIC > ```
+# MAGIC > Build a streaming table called silver_tpr_prices in publix_agentic_<yourname>.medallion that:
+# MAGIC > - Reads from STREAM(bronze.price_updates_raw)
+# MAGIC > - Base64-decodes: data.Selling_Price, data.Effective_Date, data.Term_Date, data.Deal_Price
+# MAGIC > - Extracts: event_id (data.Event_Id), item_code (data.Item_Code), store_number (data.Store_Number),
+# MAGIC >   event_ts (CAST(base64_decode(data.Event_Timestamp) to TIMESTAMP)), selling_price (CAST(decoded DOUBLE)),
+# MAGIC >   effective_date (CAST(decoded DATE)), deal_price (CAST(decoded DOUBLE))
+# MAGIC > - Includes EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW
+# MAGIC > - Uses CLUSTER BY (store_number, item_code)
+# MAGIC > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
+# MAGIC > ```
+# MAGIC
+# MAGIC Genie Code will write the SQL. Review it against the reference below, then save them
+# MAGIC to `src/pipelines/transformations/silver_pos_sales.sql` and `silver_tpr_prices.sql` in your repo.
 
 # COMMAND ----------
 
-# reference solution - actual silver layer (uses per-user CATALOG)
+# reference solution - silver_pos_sales layer (explodes nested Basket.BasketItems)
 spark.sql(f"""
-CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_sales
-  (CONSTRAINT valid_event EXPECT (event_id IS NOT NULL AND item_id IS NOT NULL) ON VIOLATION DROP ROW)
-  COMMENT "Cleaned, typed Publix sales events."
-  CLUSTER BY (store_number, item_id)
+CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_pos_sales
+  (CONSTRAINT valid_item EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW)
+  COMMENT "Cleaned, typed POSA sales line items (one row per basket item)."
+  CLUSTER BY (store_number, sku)
 AS
 SELECT
-  event_id,
-  store_number,
-  CAST(event_timestamp AS TIMESTAMP)        AS event_ts,
-  item_id,
-  item_name,
-  item_category,
-  CAST(quantity_sold AS INT)            AS quantity_sold,
-  CAST(unit_price AS DECIMAL(10, 2))    AS unit_price,
-  CAST(total_amount AS DECIMAL(12, 2))  AS total_amount,
-  cashier_id,
-  transaction_id
-FROM STREAM({CATALOG}.bronze.sales_events)
+  value.Basket.StoreNumber             AS store_number,
+  value.Basket.TransactionId           AS transaction_id,
+  CAST(value.TransactionDateTime AS TIMESTAMP) AS event_ts,
+  item.Sku                             AS sku,
+  item.Name                            AS item_name,
+  item.FamilyGroup                     AS item_category,
+  CAST(item.Quantity AS INT)           AS quantity,
+  CAST(item.UnitPrice AS DECIMAL(10, 2))  AS unit_price,
+  CAST(item.TotalPrice AS DECIMAL(12, 2)) AS total_price
+FROM STREAM({CATALOG}.bronze.pos_sales_raw)
+LATERAL VIEW EXPLODE(value.Basket.BasketItems) exploded AS item
+""")
+
+# reference solution - silver_tpr_prices layer (base64-decodes and types)
+spark.sql(f"""
+CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_tpr_prices
+  (CONSTRAINT valid_price EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW)
+  COMMENT "Cleaned, typed TPR price events with base64-decoded fields."
+  CLUSTER BY (store_number, item_code)
+AS
+SELECT
+  data.Event_Id                        AS event_id,
+  data.Item_Code                       AS item_code,
+  data.Store_Number                    AS store_number,
+  CAST(unbase64(data.Event_Timestamp) AS STRING) AS event_ts_str,
+  CAST(unbase64(data.Effective_Date) AS STRING)  AS effective_date_str,
+  CAST(unbase64(data.Selling_Price) AS DECIMAL(10, 2)) AS selling_price,
+  CAST(unbase64(data.Deal_Price) AS DECIMAL(10, 2))    AS deal_price,
+  data.Price_Type                      AS price_type
+FROM STREAM({CATALOG}.bronze.price_updates_raw)
 """)
 
 # COMMAND ----------
@@ -106,39 +145,44 @@ FROM STREAM({CATALOG}.bronze.sales_events)
 # MAGIC %md
 # MAGIC ## Layer 2: Gold (business semantics)
 # MAGIC
-# MAGIC Next, build a materialized view that aggregates silver to daily sales by store and item.
-# MAGIC This is your Genie-ready semantic layer. Genie will ask questions against this table.
+# MAGIC Next, build a materialized view that joins silver_pos_sales with silver_tpr_prices,
+# MAGIC then aggregates daily by store and item. This is your Genie-ready semantic layer.
 # MAGIC
 # MAGIC > **🧞 Prompt for Genie Code**
 # MAGIC > ```
-# MAGIC > Build a materialized view called gold_store_item_daily in the medallion schema
-# MAGIC > that aggregates silver_sales to daily units sold, revenue, and line item counts
-# MAGIC > grouped by store_number, item_id, item_name, item_category, and sales_date.
-# MAGIC > Include SUM(quantity_sold) as units_sold, SUM(total_amount) as revenue,
-# MAGIC > and COUNT(*) as line_items. Cast the date from event_ts. Write it as
-# MAGIC > CREATE OR REFRESH MATERIALIZED VIEW.
+# MAGIC > Build a materialized view called gold_store_item_daily in the medallion schema that:
+# MAGIC > - Joins silver_pos_sales with silver_tpr_prices on store_number and item code (sku vs item_code matching)
+# MAGIC > - Aggregates by store_number, sku, item_name, item_category, and sales_date (CAST(event_ts AS DATE))
+# MAGIC > - Computes: SUM(quantity) as units_sold, SUM(total_price) as revenue, AVG(selling_price) as avg_price,
+# MAGIC >   COUNT(*) as line_items
+# MAGIC > - Write it as CREATE OR REFRESH MATERIALIZED VIEW.
 # MAGIC > ```
 # MAGIC
 # MAGIC Save this to `src/pipelines/transformations/gold_store_item_daily.sql`.
 
 # COMMAND ----------
 
-# reference solution - actual gold layer (uses per-user CATALOG)
+# reference solution - gold layer (joins silver_pos_sales and silver_tpr_prices, then aggregates daily)
 spark.sql(f"""
 CREATE OR REFRESH MATERIALIZED VIEW {CATALOG}.medallion.gold_store_item_daily
-  COMMENT "Daily units and revenue by store and item."
+  COMMENT "Daily units, revenue, and pricing by store and item (POSA sales with TPR pricing)."
 AS
 SELECT
-  store_number,
-  item_id,
-  item_name,
-  item_category,
-  CAST(event_ts AS DATE)  AS sales_date,
-  SUM(quantity_sold)      AS units_sold,
-  SUM(total_amount)       AS revenue,
-  COUNT(*)                AS line_items
-FROM {CATALOG}.medallion.silver_sales
-GROUP BY store_number, item_id, item_name, item_category, CAST(event_ts AS DATE)
+  pos.store_number,
+  pos.sku,
+  pos.item_name,
+  pos.item_category,
+  CAST(pos.event_ts AS DATE)  AS sales_date,
+  SUM(pos.quantity)           AS units_sold,
+  SUM(pos.total_price)        AS revenue,
+  AVG(COALESCE(tpr.selling_price, pos.unit_price)) AS avg_price,
+  COUNT(*)                    AS line_items
+FROM {CATALOG}.medallion.silver_pos_sales pos
+LEFT JOIN {CATALOG}.medallion.silver_tpr_prices tpr
+  ON pos.store_number = tpr.store_number
+  AND pos.sku = CAST(SUBSTR(tpr.item_code, 5) AS INT)
+  AND CAST(pos.event_ts AS DATE) = CAST(tpr.effective_date_str AS DATE)
+GROUP BY pos.store_number, pos.sku, pos.item_name, pos.item_category, CAST(pos.event_ts AS DATE)
 """)
 
 # COMMAND ----------
@@ -184,7 +228,9 @@ resources:
       channel: CURRENT
       libraries:
         - file:
-            path: ../src/pipelines/transformations/silver_sales.sql
+            path: ../src/pipelines/transformations/silver_pos_sales.sql
+        - file:
+            path: ../src/pipelines/transformations/silver_tpr_prices.sql
         - file:
             path: ../src/pipelines/transformations/gold_store_item_daily.sql
 
@@ -202,28 +248,40 @@ resources:
 
 # check row counts at each layer
 print("=== Medallion pipeline row counts ===")
-spark.sql(f"SELECT COUNT(*) as bronze_count FROM {CATALOG}.bronze.sales_events").show(truncate=False)
-spark.sql(f"SELECT COUNT(*) as silver_count FROM {CATALOG}.medallion.silver_sales").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as bronze_posa_count FROM {CATALOG}.bronze.pos_sales_raw").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as bronze_tpr_count FROM {CATALOG}.bronze.price_updates_raw").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as silver_pos_count FROM {CATALOG}.medallion.silver_pos_sales").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as silver_tpr_count FROM {CATALOG}.medallion.silver_tpr_prices").show(truncate=False)
 spark.sql(f"SELECT COUNT(*) as gold_count FROM {CATALOG}.medallion.gold_store_item_daily").show(truncate=False)
 
 # COMMAND ----------
 
-# sample data: see what silver_sales looks like
+# sample data: see what silver_pos_sales looks like (exploded line items)
 spark.sql(f"""
 SELECT
-  event_id, store_number, event_ts, item_id, item_name,
-  quantity_sold, unit_price, total_amount
-FROM {CATALOG}.medallion.silver_sales
+  store_number, transaction_id, event_ts, sku, item_name,
+  quantity, unit_price, total_price
+FROM {CATALOG}.medallion.silver_pos_sales
 LIMIT 5
 """).display()
 
 # COMMAND ----------
 
-# sample data: daily aggregation (gold layer)
+# sample data: see what silver_tpr_prices looks like (base64-decoded)
 spark.sql(f"""
 SELECT
-  store_number, item_id, item_name, sales_date,
-  units_sold, revenue, line_items
+  event_id, item_code, store_number, selling_price, deal_price, price_type
+FROM {CATALOG}.medallion.silver_tpr_prices
+LIMIT 5
+""").display()
+
+# COMMAND ----------
+
+# sample data: daily aggregation (gold layer with pricing)
+spark.sql(f"""
+SELECT
+  store_number, sku, item_name, sales_date,
+  units_sold, revenue, avg_price, line_items
 FROM {CATALOG}.medallion.gold_store_item_daily
 ORDER BY sales_date DESC, revenue DESC
 LIMIT 10
@@ -241,10 +299,12 @@ LIMIT 10
 
 # Quick sanity check
 gold_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.gold_store_item_daily").collect()[0]["cnt"]
-silver_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.silver_sales").collect()[0]["cnt"]
+silver_pos_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.silver_pos_sales").collect()[0]["cnt"]
+silver_tpr_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.silver_tpr_prices").collect()[0]["cnt"]
 
 print(f"Your pipeline status:")
-print(f"  Silver rows: {silver_count}")
+print(f"  Silver POS (line items): {silver_pos_count}")
+print(f"  Silver TPR (prices): {silver_tpr_count}")
 print(f"  Gold rows: {gold_count}")
 
 if gold_count == 0:

@@ -40,15 +40,15 @@ when you run the publisher. SP setup is in `SETUP_SERVICE_PRINCIPAL.md`.
 > - Use the Zerobus Ingest SDK (install: pip install databricks-zerobus-ingest-sdk)
 > - Connect to the Zerobus endpoint: https://<workspace-id>.zerobus.eastus.azuredatabricks.net
 > - Authenticate using a service principal (app_id and secret from Databricks secret scope publix_workshop)
-> - Define two Zerobus streams:
->   1. publix_agentic_workshop.bronze.sales_events (6 realistic Publix products with prices)
->   2. publix_agentic_workshop.bronze.price_updates
+> - Define two Zerobus streams (use YOUR catalog publix_agentic_<yourname>):
+>   1. publix_agentic_<yourname>.bronze.pos_sales_raw (POSA Kafka envelope with nested value.Basket.BasketItems array)
+>   2. publix_agentic_<yourname>.bronze.price_updates_raw (TPR Kafka envelope with base64-encoded data fields)
 > - For 60 seconds, publish synthetic events:
->   - 3-6 sales per second to sales_events (random store, product, quantity)
->   - Occasional price updates (10% chance per second)
+>   - 3-6 POSA sales per second (nested Basket with 1-8 items, store number, cashier, tenders)
+>   - Occasional TPR price updates (10% chance per second, base64-encode Selling_Price and Effective_Date)
 > - Use fire-and-forget ingestion (ingest_record_nowait)
 > - Flush and close streams cleanly at the end
-> - Use environment variables for all credentials (DATABRICKS_WORKSPACE_URL, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, ZEROBUS_SERVER_ENDPOINT, DURATION_SECONDS)
+> - Use environment variables for all credentials (DATABRICKS_WORKSPACE_URL, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET, ZEROBUS_SERVER_ENDPOINT, DURATION_SECONDS, WORKSHOP_CATALOG env var for override)
 >
 > Generate a production-ready script. Show me the plan and the code.
 > ```
@@ -63,19 +63,33 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 
 **This is the main hands-on exercise.** Everyone builds the same pipeline structure, each in their own catalog.
 
-**For the silver layer**, use this prompt (replace `publix_agentic_workshop` with your own `publix_agentic_<yourname>`):
+**For the silver_pos_sales layer**, use this prompt:
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Build a streaming table called silver_sales in publix_agentic_<yourname>.medallion (use YOUR catalog)
-> that reads from bronze.sales_events and:
-> - Casts event_timestamp STRING -> TIMESTAMP (bronze lands raw; silver casts)
-> - Casts quantity_sold to INT
-> - Casts unit_price DOUBLE -> DECIMAL(10, 2)
-> - Casts total_amount DOUBLE -> DECIMAL(12, 2)
-> - Keeps item_id as INT (never STRING)
-> - Includes a constraint that drops rows where event_id or item_id is null
-> - Uses liquid clustering on store_number and item_id
+> Build a streaming table called silver_pos_sales in publix_agentic_<yourname>.medallion that:
+> - Reads from STREAM(bronze.pos_sales_raw)
+> - Explodes value.Basket.BasketItems to one row per line item
+> - Extracts: store_number (value.Basket.StoreNumber), transaction_id (value.Basket.TransactionId),
+>   event_ts (CAST(value.TransactionDateTime to TIMESTAMP)), sku (Sku), item_name (Name),
+>   item_category (FamilyGroup), quantity (Quantity), unit_price (UnitPrice), total_price (TotalPrice)
+> - Includes EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW
+> - Uses CLUSTER BY (store_number, sku)
+> Write it as a CREATE OR REFRESH STREAMING TABLE statement.
+> ```
+
+**For the silver_tpr_prices layer**, use this prompt:
+
+> **🧞 Prompt for Genie Code**
+> ```
+> Build a streaming table called silver_tpr_prices in publix_agentic_<yourname>.medallion that:
+> - Reads from STREAM(bronze.price_updates_raw)
+> - Base64-decodes: data.Selling_Price, data.Effective_Date, data.Term_Date, data.Deal_Price
+> - Extracts: event_id (data.Event_Id), item_code (data.Item_Code), store_number (data.Store_Number),
+>   event_ts (CAST(base64_decode(data.Event_Timestamp) to TIMESTAMP)), selling_price (CAST(decoded DOUBLE)),
+>   effective_date (CAST(decoded DATE)), deal_price (CAST(decoded DOUBLE))
+> - Includes EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW
+> - Uses CLUSTER BY (store_number, item_code)
 > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
 > ```
 
@@ -83,15 +97,15 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Build a materialized view called gold_store_item_daily in the medallion schema
-> that aggregates silver_sales to daily units sold, revenue, and line item counts
-> grouped by store_number, item_id, item_name, item_category, and sales_date.
-> Include SUM(quantity_sold) as units_sold, SUM(total_amount) as revenue,
-> and COUNT(*) as line_items. Cast the date from event_ts. Write it as
-> CREATE OR REFRESH MATERIALIZED VIEW.
+> Build a materialized view called gold_store_item_daily in the medallion schema that:
+> - Joins silver_pos_sales with silver_tpr_prices on store_number and item code (sku vs item_code matching)
+> - Aggregates by store_number, sku, item_name, item_category, and sales_date (CAST(event_ts AS DATE))
+> - Computes: SUM(quantity) as units_sold, SUM(total_price) as revenue, AVG(selling_price) as avg_price,
+>   COUNT(*) as line_items
+> - Write it as CREATE OR REFRESH MATERIALIZED VIEW.
 > ```
 
-Save both to `src/pipelines/transformations/` and deploy via DAB.
+Save all three to `src/pipelines/transformations/` (silver_pos_sales.sql, silver_tpr_prices.sql, gold_store_item_daily.sql) and deploy via DAB.
 
 ---
 

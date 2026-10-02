@@ -226,7 +226,7 @@ except Exception as e:
 # MAGIC
 # MAGIC **If Kafka produced events:**
 # MAGIC - Your events are in `publix-sales-events` and `publix-price-updates` topics
-# MAGIC - Next, configure Notebook 3 (Zerobus ingest) to consume from these topics and write to `bronze.sales_events` / `bronze.price_updates`
+# MAGIC - Next, configure Notebook 3 (Zerobus ingest) to consume from these topics and write to `bronze.pos_sales_raw` / `bronze.price_updates_raw`
 # MAGIC
 # MAGIC **If Kafka did not work:**
 # MAGIC - No problem! Proceed to Notebook 3 (Zerobus ingest) - it is the recommended path

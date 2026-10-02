@@ -141,14 +141,14 @@ def price_updates(limit: int = 50) -> list[dict[str, Any]]:
     rows = run_query(
         f"""
         SELECT
-          event_timestamp,
-          item_id,
-          item_name,
-          old_price,
-          new_price,
-          effective_date
+          event_ts_str AS event_timestamp,
+          item_code,
+          item_code AS item_name,
+          selling_price AS old_price,
+          deal_price AS new_price,
+          effective_date_str AS effective_date
         FROM {PRICE_TABLE}
-        ORDER BY event_timestamp DESC
+        ORDER BY event_ts_str DESC
         LIMIT {int(limit)}
         """
     )
@@ -160,7 +160,7 @@ def price_updates(limit: int = 50) -> list[dict[str, Any]]:
         out.append(
             {
                 "event_timestamp": r.get("event_timestamp"),
-                "item_id": str(r.get("item_id")),
+                "item_id": str(r.get("item_code")),
                 "item_name": r.get("item_name"),
                 "old_price": old_p,
                 "new_price": new_p,
