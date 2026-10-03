@@ -169,7 +169,7 @@ It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `sou
 
 **If it 401s (`invalid_authorization_details`):** you skipped the SP grant in Step 1, or the catalog was recreated after the grant. Run the three GRANTs from Step 1, then re-run the publisher.
 
-**If it errors `Record decoder/encoder error ... expected a string`:** your bronze table types drifted from what the publisher sends (Genie Code typed `item_id` as STRING or timestamps as TIMESTAMP). This is why Step 1 pins the exact raw types. Recreate the two bronze tables with the Step 1 types, then re-run. Bronze is raw; silver casts.
+**If it errors `Record decoder/encoder error ... expected a string`:** your bronze table types drifted from what the publisher sends (Genie Code typed `offset` as STRING or the Kafka `timestamp` as TIMESTAMP instead of BIGINT). This is why Step 1 pins the exact raw types. Recreate the two bronze tables with the Step 1 types, then re-run. Bronze is raw; silver casts.
 
 ---
 
@@ -180,9 +180,9 @@ It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `sou
 **Do:** Paste the prompt, review the two SQL transforms. Then Workflows -> Pipelines (Lakeflow) -> Create pipeline -> Serverless -> point it at the generated SQL -> Start. (Or let Genie Code scaffold the pipeline and just hit Start in the UI.)
 **Prompt:**
 > Create a Spark Declarative Pipeline in SQL over `publix_agentic_<yourname>`:
-> - SILVER `medallion.silver_pos_sales`: streaming table reading STREAM(bronze.pos_sales_raw); explodes value.Basket.BasketItems to one row per line item; extracts store_number, transaction_id, event_ts, sku, item_name, item_category, quantity, unit_price, total_price; EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, sku).
-> - SILVER `medallion.silver_tpr_prices`: streaming table reading STREAM(bronze.price_updates_raw); base64-decodes Selling_Price and Effective_Date; extracts event_id, item_code, store_number, event_ts, selling_price, effective_date, deal_price; EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_code).
-> - GOLD `medallion.gold_store_item_daily`: materialized view joining silver_pos_sales with silver_tpr_prices on store and item, aggregating by store_number, sku, item_name, item_category, sales_date -> SUM(quantity) as units_sold, SUM(total_price) as revenue, AVG(selling_price) as avg_price, COUNT(*) as line_items.
+> - SILVER `medallion.silver_pos_sales`: streaming table reading STREAM(bronze.pos_sales_raw); explodes value.Basket.BasketItems to one row per line item; extracts store_number, transaction_id, start_time, item_sku, item_gtin, item_name, item_family, quantity, unit_price, total_price; EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_sku).
+> - SILVER `medallion.silver_tpr_prices`: streaming table reading STREAM(bronze.price_updates_raw); base64-decodes Event_Timestamp, Effective_Date, Term_Date, Selling_Price, Deal_Price; extracts event_id, item_code, store_number, price_type, event_timestamp, selling_price, deal_price, effective_date; EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_code).
+> - GOLD `medallion.gold_store_item_daily`: materialized view aggregating silver_pos_sales by store_number, item_sku, item_gtin, item_name, item_family, sales_date (CAST(start_time AS DATE)) -> COUNT(DISTINCT transaction_id) as num_transactions, SUM(quantity) as units_sold, SUM(total_price) as revenue, COUNT(*) as line_item_count, MIN/MAX/AVG(unit_price). (Price lives in silver_tpr_prices; weave it in at analysis time.)
 > Give me all three SQL files and set it up as a serverless pipeline I can start.
 
 **Verify (in the UI):** The Pipelines page draws the DAG bronze -> silver_pos_sales / silver_tpr_prices -> gold and turns each node green. Serverless cold start is ~3-5 min - narrate the lineage and quality-rule (dropped rows) counts while it runs. Then Catalog Explorer -> `medallion.silver_pos_sales` shows exploded line items; `gold_store_item_daily` is populated with daily aggregates by store/item/date.
@@ -197,7 +197,7 @@ It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `sou
 **Prompt:**
 > Create a Unity Catalog metric view `medallion.store_performance_metric_view` on `gold_store_item_daily`:
 > - measures: total_revenue = SUM(revenue), total_units = SUM(units_sold), avg_units_per_item = AVG(units_sold)
-> - dimensions: store_number, item_id, sales_date
+> - dimensions: store_number, item_sku, sales_date
 > Use the YAML metric-view syntax (version 1.0, source in the YAML, no trailing SELECT). Give me the CREATE statement to run in the SQL editor, then a MEASURE() query to test it.
 
 **Verify (in the UI):** SQL Editor result grid for

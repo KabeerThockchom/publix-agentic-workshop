@@ -56,8 +56,8 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC 5. **Add your query** (replace `publix_agentic_workshop` with your own `publix_agentic_<yourname>`):
 # MAGIC    ```sql
 # MAGIC    SELECT
-# MAGIC      store_number, item_id, item_name, item_category,
-# MAGIC      sales_date, units_sold, revenue, line_items
+# MAGIC      store_number, item_sku, item_name, item_family,
+# MAGIC      sales_date, units_sold, revenue, line_item_count
 # MAGIC    FROM publix_agentic_<yourname>.medallion.gold_store_item_daily
 # MAGIC    WHERE sales_date >= CURRENT_DATE - 30
 # MAGIC    ORDER BY revenue DESC
@@ -105,7 +105,7 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC                  token=os.getenv("DATABRICKS_TOKEN"),
 # MAGIC                  warehouse_id=os.getenv("WAREHOUSE_ID")) as conn:
 # MAGIC        query = """
-# MAGIC        SELECT store_number, item_id, item_name, revenue, units_sold
+# MAGIC        SELECT store_number, item_sku, item_name, revenue, units_sold
 # MAGIC        FROM publix_agentic_<yourname>.medallion.gold_store_item_daily
 # MAGIC        """  # Replace publix_agentic_workshop with your own publix_agentic_<yourname>
 # MAGIC        if store_id:
@@ -141,7 +141,7 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC         <thead><tr><th>Item</th><th>Revenue</th><th>Units</th></tr></thead>
 # MAGIC         <tbody>
 # MAGIC           {items.map(item => (
-# MAGIC             <tr key={item.item_id}>
+# MAGIC             <tr key={item.item_sku}>
 # MAGIC               <td>{item.item_name}</td>
 # MAGIC               <td>${item.revenue}</td>
 # MAGIC               <td>{item.units_sold}</td>

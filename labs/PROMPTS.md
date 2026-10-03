@@ -71,10 +71,11 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 > - Reads from STREAM(bronze.pos_sales_raw)
 > - Explodes value.Basket.BasketItems to one row per line item
 > - Extracts: store_number (value.Basket.StoreNumber), transaction_id (value.Basket.TransactionId),
->   event_ts (CAST(value.TransactionDateTime to TIMESTAMP)), sku (Sku), item_name (Name),
->   item_category (FamilyGroup), quantity (Quantity), unit_price (UnitPrice), total_price (TotalPrice)
-> - Includes EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW
-> - Uses CLUSTER BY (store_number, sku)
+>   start_time (CAST(value.Basket.StartTime to TIMESTAMP)), item_sku (Sku), item_gtin (Gtin),
+>   item_name (Name), item_family (FamilyGroup), quantity (Quantity), unit_price (UnitPrice),
+>   total_price (TotalPrice)
+> - Includes EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW
+> - Uses CLUSTER BY (store_number, item_sku)
 > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
 > ```
 
@@ -84,11 +85,12 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 > ```
 > Build a streaming table called silver_tpr_prices in publix_agentic_<yourname>.medallion that:
 > - Reads from STREAM(bronze.price_updates_raw)
-> - Base64-decodes: data.Selling_Price, data.Effective_Date, data.Term_Date, data.Deal_Price
+> - Base64-decodes: data.Event_Timestamp, data.Effective_Date, data.Term_Date, data.Selling_Price, data.Deal_Price
 > - Extracts: event_id (data.Event_Id), item_code (data.Item_Code), store_number (data.Store_Number),
->   event_ts (CAST(base64_decode(data.Event_Timestamp) to TIMESTAMP)), selling_price (CAST(decoded DOUBLE)),
->   effective_date (CAST(decoded DATE)), deal_price (CAST(decoded DOUBLE))
-> - Includes EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW
+>   price_type (data.Price_Type), event_timestamp (CAST decoded AS TIMESTAMP),
+>   selling_price (CAST decoded AS DECIMAL(10,2)), deal_price (CAST decoded AS DECIMAL(10,2)),
+>   effective_date (CAST decoded AS DATE)
+> - Includes EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW
 > - Uses CLUSTER BY (store_number, item_code)
 > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
 > ```
@@ -98,10 +100,11 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 > **🧞 Prompt for Genie Code**
 > ```
 > Build a materialized view called gold_store_item_daily in the medallion schema that:
-> - Joins silver_pos_sales with silver_tpr_prices on store_number and item code (sku vs item_code matching)
-> - Aggregates by store_number, sku, item_name, item_category, and sales_date (CAST(event_ts AS DATE))
-> - Computes: SUM(quantity) as units_sold, SUM(total_price) as revenue, AVG(selling_price) as avg_price,
->   COUNT(*) as line_items
+> - Aggregates silver_pos_sales by store_number, item_sku, item_gtin, item_name, item_family,
+>   and sales_date (CAST(start_time AS DATE))
+> - Computes: COUNT(DISTINCT transaction_id) as num_transactions, SUM(quantity) as units_sold,
+>   SUM(total_price) as revenue, COUNT(*) as line_item_count,
+>   MIN/MAX/AVG(unit_price) as min_unit_price / max_unit_price / avg_unit_price
 > - Write it as CREATE OR REFRESH MATERIALIZED VIEW.
 > ```
 
@@ -119,7 +122,7 @@ Save all three to `src/pipelines/transformations/` (silver_pos_sales.sql, silver
 > ```
 > Write Genie space instructions for a "Store Performance" agent on `gold_store_item_daily`.
 > State that revenue is daily and pre-aggregated by store, item, and date; define store_number,
-> item_id, units_sold, revenue; and tell it to always group by the grain the user asks for.
+> item_sku, units_sold, revenue; and tell it to always group by the grain the user asks for.
 > Keep it under 12 lines.
 > ```
 

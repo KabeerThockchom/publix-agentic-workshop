@@ -61,7 +61,7 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC - Explodes BasketItems array to one row per line item
 # MAGIC - Extracts store, transaction, and item details from the nested structure
 # MAGIC - Drops rows with missing SKU or quantity (quality gate)
-# MAGIC - Clusters by store_number and sku for query performance
+# MAGIC - Clusters by store_number and item_sku for query performance
 # MAGIC
 # MAGIC ### silver_tpr_prices
 # MAGIC - Reads bronze.price_updates_raw as a stream (Kafka envelope with base64 fields)
@@ -75,10 +75,11 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC > - Reads from STREAM(bronze.pos_sales_raw)
 # MAGIC > - Explodes value.Basket.BasketItems to one row per line item
 # MAGIC > - Extracts: store_number (value.Basket.StoreNumber), transaction_id (value.Basket.TransactionId),
-# MAGIC >   event_ts (CAST(value.TransactionDateTime to TIMESTAMP)), sku (Sku), item_name (Name),
-# MAGIC >   item_category (FamilyGroup), quantity (Quantity), unit_price (UnitPrice), total_price (TotalPrice)
-# MAGIC > - Includes EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW
-# MAGIC > - Uses CLUSTER BY (store_number, sku)
+# MAGIC >   start_time (CAST(value.Basket.StartTime to TIMESTAMP)), item_sku (Sku), item_gtin (Gtin),
+# MAGIC >   item_name (Name), item_family (FamilyGroup), quantity (Quantity), unit_price (UnitPrice),
+# MAGIC >   total_price (TotalPrice)
+# MAGIC > - Includes EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW
+# MAGIC > - Uses CLUSTER BY (store_number, item_sku)
 # MAGIC > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
 # MAGIC > ```
 # MAGIC
@@ -88,9 +89,10 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC > - Reads from STREAM(bronze.price_updates_raw)
 # MAGIC > - Base64-decodes: data.Selling_Price, data.Effective_Date, data.Term_Date, data.Deal_Price
 # MAGIC > - Extracts: event_id (data.Event_Id), item_code (data.Item_Code), store_number (data.Store_Number),
-# MAGIC >   event_ts (CAST(base64_decode(data.Event_Timestamp) to TIMESTAMP)), selling_price (CAST(decoded DOUBLE)),
-# MAGIC >   effective_date (CAST(decoded DATE)), deal_price (CAST(decoded DOUBLE))
-# MAGIC > - Includes EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW
+# MAGIC >   event_timestamp (CAST(UNBASE64(data.Event_Timestamp) AS STRING AS TIMESTAMP)), price_type (data.Price_Type),
+# MAGIC >   selling_price (CAST(decoded AS DECIMAL(10,2))), deal_price (CAST(decoded AS DECIMAL(10,2))),
+# MAGIC >   effective_date (CAST(decoded AS DATE))
+# MAGIC > - Includes EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW
 # MAGIC > - Uses CLUSTER BY (store_number, item_code)
 # MAGIC > Write it as a CREATE OR REFRESH STREAMING TABLE statement.
 # MAGIC > ```
@@ -103,17 +105,18 @@ print(f"Your catalog: {CATALOG}")
 # reference solution - silver_pos_sales layer (explodes nested Basket.BasketItems)
 spark.sql(f"""
 CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_pos_sales
-  (CONSTRAINT valid_item EXPECT (sku IS NOT NULL AND quantity IS NOT NULL) ON VIOLATION DROP ROW)
+  (CONSTRAINT valid_transaction EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned, typed POSA sales line items (one row per basket item)."
-  CLUSTER BY (store_number, sku)
+  CLUSTER BY (store_number, item_sku)
 AS
 SELECT
   value.Basket.StoreNumber             AS store_number,
   value.Basket.TransactionId           AS transaction_id,
-  CAST(value.TransactionDateTime AS TIMESTAMP) AS event_ts,
-  item.Sku                             AS sku,
+  CAST(value.Basket.StartTime AS TIMESTAMP) AS start_time,
+  item.Sku                             AS item_sku,
+  item.Gtin                            AS item_gtin,
   item.Name                            AS item_name,
-  item.FamilyGroup                     AS item_category,
+  item.FamilyGroup                     AS item_family,
   CAST(item.Quantity AS INT)           AS quantity,
   CAST(item.UnitPrice AS DECIMAL(10, 2))  AS unit_price,
   CAST(item.TotalPrice AS DECIMAL(12, 2)) AS total_price
@@ -124,7 +127,7 @@ LATERAL VIEW EXPLODE(value.Basket.BasketItems) exploded AS item
 # reference solution - silver_tpr_prices layer (base64-decodes and types)
 spark.sql(f"""
 CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_tpr_prices
-  (CONSTRAINT valid_price EXPECT (item_code IS NOT NULL AND store_number IS NOT NULL) ON VIOLATION DROP ROW)
+  (CONSTRAINT valid_price EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned, typed TPR price events with base64-decoded fields."
   CLUSTER BY (store_number, item_code)
 AS
@@ -132,11 +135,12 @@ SELECT
   data.Event_Id                        AS event_id,
   data.Item_Code                       AS item_code,
   data.Store_Number                    AS store_number,
-  CAST(unbase64(data.Event_Timestamp) AS STRING) AS event_ts_str,
-  CAST(unbase64(data.Effective_Date) AS STRING)  AS effective_date_str,
-  CAST(unbase64(data.Selling_Price) AS DECIMAL(10, 2)) AS selling_price,
-  CAST(unbase64(data.Deal_Price) AS DECIMAL(10, 2))    AS deal_price,
-  data.Price_Type                      AS price_type
+  data.Price_Type                      AS price_type,
+  CAST(CAST(UNBASE64(data.Event_Timestamp) AS STRING) AS TIMESTAMP) AS event_timestamp,
+  CAST(CAST(UNBASE64(data.Effective_Date) AS STRING) AS DATE)       AS effective_date,
+  CAST(CAST(UNBASE64(data.Term_Date) AS STRING) AS DATE)            AS term_date,
+  CAST(CAST(UNBASE64(data.Selling_Price) AS STRING) AS DECIMAL(10, 2)) AS selling_price,
+  CAST(CAST(UNBASE64(data.Deal_Price) AS STRING) AS DECIMAL(10, 2))    AS deal_price
 FROM STREAM({CATALOG}.bronze.price_updates_raw)
 """)
 
@@ -145,16 +149,18 @@ FROM STREAM({CATALOG}.bronze.price_updates_raw)
 # MAGIC %md
 # MAGIC ## Layer 2: Gold (business semantics)
 # MAGIC
-# MAGIC Next, build a materialized view that joins silver_pos_sales with silver_tpr_prices,
-# MAGIC then aggregates daily by store and item. This is your Genie-ready semantic layer.
+# MAGIC Next, build a materialized view that aggregates silver_pos_sales to daily units and revenue
+# MAGIC by store and item. This is your Genie-ready semantic layer. (Price lives in silver_tpr_prices;
+# MAGIC you weave it in at analysis time - EDA and the forecast model - rather than baking it into gold.)
 # MAGIC
 # MAGIC > **🧞 Prompt for Genie Code**
 # MAGIC > ```
 # MAGIC > Build a materialized view called gold_store_item_daily in the medallion schema that:
-# MAGIC > - Joins silver_pos_sales with silver_tpr_prices on store_number and item code (sku vs item_code matching)
-# MAGIC > - Aggregates by store_number, sku, item_name, item_category, and sales_date (CAST(event_ts AS DATE))
-# MAGIC > - Computes: SUM(quantity) as units_sold, SUM(total_price) as revenue, AVG(selling_price) as avg_price,
-# MAGIC >   COUNT(*) as line_items
+# MAGIC > - Aggregates silver_pos_sales by store_number, item_sku, item_gtin, item_name, item_family,
+# MAGIC >   and sales_date (CAST(start_time AS DATE))
+# MAGIC > - Computes: COUNT(DISTINCT transaction_id) as num_transactions, SUM(quantity) as units_sold,
+# MAGIC >   SUM(total_price) as revenue, COUNT(*) as line_item_count,
+# MAGIC >   MIN/MAX/AVG(unit_price) as min_unit_price / max_unit_price / avg_unit_price
 # MAGIC > - Write it as CREATE OR REFRESH MATERIALIZED VIEW.
 # MAGIC > ```
 # MAGIC
@@ -162,27 +168,28 @@ FROM STREAM({CATALOG}.bronze.price_updates_raw)
 
 # COMMAND ----------
 
-# reference solution - gold layer (joins silver_pos_sales and silver_tpr_prices, then aggregates daily)
+# reference solution - gold layer (daily store-item aggregation from POSA line items)
 spark.sql(f"""
 CREATE OR REFRESH MATERIALIZED VIEW {CATALOG}.medallion.gold_store_item_daily
-  COMMENT "Daily units, revenue, and pricing by store and item (POSA sales with TPR pricing)."
+  COMMENT "Daily sales by store, item, and date. Aggregated from POSA line items."
 AS
 SELECT
-  pos.store_number,
-  pos.sku,
-  pos.item_name,
-  pos.item_category,
-  CAST(pos.event_ts AS DATE)  AS sales_date,
-  SUM(pos.quantity)           AS units_sold,
-  SUM(pos.total_price)        AS revenue,
-  AVG(COALESCE(tpr.selling_price, pos.unit_price)) AS avg_price,
-  COUNT(*)                    AS line_items
-FROM {CATALOG}.medallion.silver_pos_sales pos
-LEFT JOIN {CATALOG}.medallion.silver_tpr_prices tpr
-  ON pos.store_number = tpr.store_number
-  AND pos.sku = CAST(SUBSTR(tpr.item_code, 5) AS INT)
-  AND CAST(pos.event_ts AS DATE) = CAST(tpr.effective_date_str AS DATE)
-GROUP BY pos.store_number, pos.sku, pos.item_name, pos.item_category, CAST(pos.event_ts AS DATE)
+  store_number,
+  item_sku,
+  item_gtin,
+  item_name,
+  item_family,
+  CAST(start_time AS DATE)        AS sales_date,
+  COUNT(DISTINCT transaction_id)  AS num_transactions,
+  SUM(quantity)                   AS units_sold,
+  SUM(total_price)                AS revenue,
+  COUNT(*)                        AS line_item_count,
+  MIN(unit_price)                 AS min_unit_price,
+  MAX(unit_price)                 AS max_unit_price,
+  AVG(unit_price)                 AS avg_unit_price
+FROM {CATALOG}.medallion.silver_pos_sales
+GROUP BY
+  store_number, item_sku, item_gtin, item_name, item_family, CAST(start_time AS DATE)
 """)
 
 # COMMAND ----------
@@ -263,7 +270,7 @@ spark.sql(f"SELECT COUNT(*) as gold_count FROM {CATALOG}.medallion.gold_store_it
 # sample data: see what silver_pos_sales looks like (exploded line items)
 spark.sql(f"""
 SELECT
-  store_number, transaction_id, event_ts, sku, item_name,
+  store_number, transaction_id, start_time, item_sku, item_name,
   quantity, unit_price, total_price
 FROM {CATALOG}.medallion.silver_pos_sales
 LIMIT 5
@@ -284,8 +291,8 @@ LIMIT 5
 # sample data: daily aggregation (gold layer with pricing)
 spark.sql(f"""
 SELECT
-  store_number, sku, item_name, sales_date,
-  units_sold, revenue, avg_price, line_items
+  store_number, item_sku, item_name, sales_date,
+  units_sold, revenue, avg_unit_price, line_item_count
 FROM {CATALOG}.medallion.gold_store_item_daily
 ORDER BY sales_date DESC, revenue DESC
 LIMIT 10
@@ -327,7 +334,7 @@ else:
 # MAGIC - No PARTITION BY in the DDL - let Databricks choose
 # MAGIC
 # MAGIC **Expectations drop rows silently**
-# MAGIC - Your constraint `EXPECT (event_id IS NOT NULL AND item_id IS NOT NULL) ON VIOLATION DROP ROW`
+# MAGIC - Your constraint `EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW`
 # MAGIC   silently filters out bad rows. Monitor this - check the pipeline's event log if you suspect data loss
 # MAGIC - Alternatively, use `ON VIOLATION FAIL PIPELINE` to alert you to bad data
 # MAGIC

@@ -105,12 +105,12 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC > They will ask about daily store and item sales performance.
 # MAGIC >
 # MAGIC > Table: publix_agentic_<yourname>.medallion.gold_store_item_daily (use YOUR catalog)
-# MAGIC > Columns: store_number, item_id, item_name, item_category,
-# MAGIC >          sales_date, units_sold, revenue, line_items
+# MAGIC > Columns: store_number, item_sku, item_name, item_family,
+# MAGIC >          sales_date, num_transactions, units_sold, revenue, line_item_count
 # MAGIC >
 # MAGIC > Generate comprehensive general instructions that cover:
 # MAGIC > - Revenue = total sales in dollars
-# MAGIC > - Units = quantity sold; line_items = unique transaction lines
+# MAGIC > - Units = quantity sold; num_transactions = distinct baskets; line_item_count = basket lines
 # MAGIC > - Time interpretation (last week, month, quarter)
 # MAGIC > - Grocery categories (produce, deli, meat, grocery)
 # MAGIC > - Always filter by sales_date when asked about time ranges
@@ -179,8 +179,8 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC dimensions:
 # MAGIC   - name: store_number
 # MAGIC     expr: store_number
-# MAGIC   - name: item_id
-# MAGIC     expr: item_id
+# MAGIC   - name: item_sku
+# MAGIC     expr: item_sku
 # MAGIC   - name: sales_date
 # MAGIC     expr: sales_date
 # MAGIC measures:
@@ -221,13 +221,14 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC ```
 # MAGIC Relationships:
 # MAGIC   store_number (FK) → store master data
-# MAGIC   item_id (FK) → item catalog
-# MAGIC   revenue = SUM(transaction_amount) per day per item per store
+# MAGIC   item_sku (FK) → item catalog
+# MAGIC   revenue = SUM(total_price) per day per item per store
 # MAGIC
 # MAGIC Synonyms (Genie uses these to route questions):
 # MAGIC   revenue ≈ sales, total_sales, dollars
 # MAGIC   units_sold ≈ quantity, units, volume
-# MAGIC   line_items ≈ transactions, checks, baskets
+# MAGIC   num_transactions ≈ transactions, checks, baskets
+# MAGIC   line_item_count ≈ scanned lines, basket lines
 # MAGIC
 # MAGIC Governance:
 # MAGIC   All tables filtered by role (store managers see only their store)
