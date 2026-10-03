@@ -208,7 +208,7 @@ def summary() -> dict[str, Any]:
         SELECT SUM(revenue) AS total_revenue,
                SUM(units_sold) AS total_units,
                COUNT(DISTINCT store_number) AS stores,
-               COUNT(DISTINCT item_id) AS items,
+               COUNT(DISTINCT item_sku) AS items,
                CAST(MIN(sales_date) AS TEXT) AS start_date,
                CAST(MAX(sales_date) AS TEXT) AS end_date
         FROM {_GOLD}
@@ -231,7 +231,7 @@ def by_store() -> list[dict[str, Any]]:
         SELECT store_number,
                SUM(revenue) AS revenue,
                SUM(units_sold) AS units,
-               COUNT(DISTINCT item_id) AS items
+               COUNT(DISTINCT item_sku) AS items
         FROM {_GOLD}
         GROUP BY store_number
         ORDER BY revenue DESC
@@ -251,11 +251,11 @@ def by_store() -> list[dict[str, Any]]:
 def by_item() -> list[dict[str, Any]]:
     rows = _query(
         f"""
-        SELECT item_id, item_name, item_category,
+        SELECT item_sku AS item_id, item_name, item_family AS item_category,
                SUM(revenue) AS revenue,
                SUM(units_sold) AS units
         FROM {_GOLD}
-        GROUP BY item_id, item_name, item_category
+        GROUP BY item_sku, item_name, item_family
         ORDER BY revenue DESC
         """
     )
@@ -295,9 +295,9 @@ def trend() -> list[dict[str, Any]]:
 def price_updates(limit: int = 50) -> list[dict[str, Any]]:
     rows = _query(
         f"""
-        SELECT event_ts_str AS event_timestamp, item_code, selling_price, deal_price, effective_date_str AS effective_date
+        SELECT CAST(event_timestamp AS TEXT) AS event_timestamp, item_code, selling_price, deal_price, CAST(effective_date AS TEXT) AS effective_date
         FROM {_PRICES}
-        ORDER BY event_ts_str DESC
+        ORDER BY event_timestamp DESC
         LIMIT %s
         """,
         (int(limit),),
@@ -323,7 +323,7 @@ def price_updates(limit: int = 50) -> list[dict[str, Any]]:
 
 def items_catalog() -> list[dict[str, Any]]:
     rows = _query(
-        f"SELECT DISTINCT item_id, item_name FROM {_GOLD} ORDER BY item_id"
+        f"SELECT DISTINCT item_sku AS item_id, item_name FROM {_GOLD} ORDER BY item_sku"
     )
     return [{"item_id": str(r.get("item_id")), "item_name": r.get("item_name")} for r in rows]
 

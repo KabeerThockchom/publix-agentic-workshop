@@ -4,7 +4,7 @@ from typing import Any
 
 from databricks.sdk.service.sql import StatementState
 
-from .config import GOLD_TABLE, PERF_VIEW, PRICE_TABLE, WAREHOUSE_ID, get_workspace_client
+from .config import GOLD_TABLE, PRICE_TABLE, WAREHOUSE_ID, get_workspace_client
 
 
 def _coerce(v: Any) -> Any:
@@ -48,7 +48,7 @@ def summary() -> dict[str, Any]:
           CAST(SUM(revenue) AS DOUBLE) AS total_revenue,
           CAST(SUM(units_sold) AS BIGINT) AS total_units,
           COUNT(DISTINCT store_number) AS stores,
-          COUNT(DISTINCT item_id) AS items,
+          COUNT(DISTINCT item_sku) AS items,
           CAST(MIN(sales_date) AS STRING) AS start_date,
           CAST(MAX(sales_date) AS STRING) AS end_date
         FROM {GOLD_TABLE}
@@ -72,8 +72,8 @@ def by_store() -> list[dict[str, Any]]:
           store_number,
           CAST(SUM(revenue) AS DOUBLE) AS revenue,
           CAST(SUM(units_sold) AS BIGINT) AS units,
-          COUNT(DISTINCT item_id) AS items
-        FROM {PERF_VIEW}
+          COUNT(DISTINCT item_sku) AS items
+        FROM {GOLD_TABLE}
         GROUP BY store_number
         ORDER BY revenue DESC
         """
@@ -93,13 +93,13 @@ def by_item() -> list[dict[str, Any]]:
     rows = run_query(
         f"""
         SELECT
-          item_id,
+          item_sku AS item_id,
           item_name,
-          item_category,
+          item_family AS item_category,
           CAST(SUM(revenue) AS DOUBLE) AS revenue,
           CAST(SUM(units_sold) AS BIGINT) AS units
         FROM {GOLD_TABLE}
-        GROUP BY item_id, item_name, item_category
+        GROUP BY item_sku, item_name, item_family
         ORDER BY revenue DESC
         """
     )
@@ -141,14 +141,14 @@ def price_updates(limit: int = 50) -> list[dict[str, Any]]:
     rows = run_query(
         f"""
         SELECT
-          event_ts_str AS event_timestamp,
+          CAST(event_timestamp AS STRING) AS event_timestamp,
           item_code,
           item_code AS item_name,
           selling_price AS old_price,
           deal_price AS new_price,
-          effective_date_str AS effective_date
+          CAST(effective_date AS STRING) AS effective_date
         FROM {PRICE_TABLE}
-        ORDER BY event_ts_str DESC
+        ORDER BY event_timestamp DESC
         LIMIT {int(limit)}
         """
     )
@@ -174,7 +174,7 @@ def price_updates(limit: int = 50) -> list[dict[str, Any]]:
 def items_catalog() -> list[dict[str, Any]]:
     """Distinct items for form dropdowns."""
     rows = run_query(
-        f"SELECT DISTINCT item_id, item_name FROM {GOLD_TABLE} ORDER BY item_id"
+        f"SELECT DISTINCT item_sku AS item_id, item_name FROM {GOLD_TABLE} ORDER BY item_sku"
     )
     return [{"item_id": str(r.get("item_id")), "item_name": r.get("item_name")} for r in rows]
 

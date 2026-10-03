@@ -11,7 +11,7 @@ Lakebase, and answers natural-language questions via Genie.
 
 1. **Store performance dashboard** - revenue + units by store/item, top stores, and a
    revenue trend, read live from `publix_agentic_workshop.medallion.gold_store_item_daily`
-   and `.store_performance_metrics` via the SQL warehouse (`publix-workshop-wh`,
+   via the SQL warehouse (`publix-workshop-wh`,
    `<warehouse-id>`) using SDK statement execution.
    *Note: Workshop participants should override the catalog in `app.yaml` to point at their own `publix_agentic_<yourname>` catalog.*
 2. **Price watch** - recent item price changes from `publix_agentic_workshop.medallion.silver_tpr_prices` or the gold aggregates.
