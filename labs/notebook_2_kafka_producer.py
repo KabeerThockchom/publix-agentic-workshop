@@ -89,60 +89,126 @@ print(f"Duration: {DURATION_SECONDS} seconds")
 
 # COMMAND ----------
 
+import base64
 import json
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 from kafka import KafkaProducer
 
-# Product catalog
+# Product catalog - same shape as src/setup/publix_data_gen.py so these Kafka
+# events match the POSA/TPR envelopes bronze + silver expect.
 STORE_NUMBERS = [100, 102, 104, 106, 108, 110, 112, 114]
 PRODUCTS = [
-    {"id": 1001, "name": "Boar's Head Deli Ham", "category": "Deli", "price": 6.99},
-    {"id": 1002, "name": "Publix Bakery Bread", "category": "Bakery", "price": 2.49},
-    {"id": 1003, "name": "GreenWise Organic Milk", "category": "Dairy", "price": 4.29},
-    {"id": 1004, "name": "Coca-Cola 12-pack", "category": "Beverage", "price": 6.49},
-    {"id": 1005, "name": "Publix Deli Sub", "category": "Deli", "price": 7.99},
-    {"id": 1006, "name": "Fresh Strawberries", "category": "Produce", "price": 3.99},
+    {"code": "0071230002519", "sku": 1001, "name": "Boar's Head Deli Ham", "category": "Deli", "base_price": 6.99},
+    {"code": "0041230001234", "sku": 1002, "name": "Publix Bakery Ciabatta", "category": "Bakery", "base_price": 2.49},
+    {"code": "0041230004567", "sku": 1003, "name": "GreenWise Organic Milk", "category": "Dairy", "base_price": 4.29},
+    {"code": "0078000073506", "sku": 1004, "name": "Coca-Cola 12-pack", "category": "Beverage", "base_price": 6.49},
+    {"code": "0071230005678", "sku": 1005, "name": "Publix Hot Bar Sub", "category": "Deli", "base_price": 7.99},
+    {"code": "0041230002111", "sku": 1006, "name": "Fresh Strawberries", "category": "Produce", "base_price": 3.99},
 ]
+PRICE_TYPES = ["REGULAR", "DEAL", "CLEARANCE"]
+PRICE_ACTIONS = ["CREATE", "UPDATE", "DELETE"]
 
-def iso_now():
-    """Return current time as ISO string."""
-    return datetime.utcnow().isoformat() + "Z"
+def encode_field(value: str) -> str:
+    """Base64-encode a TPR price/date field (bronze stores these raw)."""
+    return base64.b64encode(value.encode()).decode()
 
 def generate_sales_event():
-    """Generate a single sales event."""
-    p = random.choice(PRODUCTS)
-    qty = random.randint(1, 10)
+    """Generate a single POSA sales event (Kafka envelope with nested Basket)."""
+    event_time = datetime.utcnow() - timedelta(seconds=random.randint(0, 3600))
+    store_num = random.choice(STORE_NUMBERS)
+
+    basket_items = []
+    subtotal = 0.0
+    for _ in range(random.randint(1, 8)):
+        prod = random.choice(PRODUCTS)
+        qty = random.randint(1, 5)
+        unit_price = round(prod["base_price"] * random.uniform(0.95, 1.10), 2)
+        total_price = round(unit_price * qty, 2)
+        subtotal += total_price
+        basket_items.append({
+            "Gtin": prod["code"],
+            "Sku": prod["sku"],
+            "Name": prod["name"],
+            "FamilyGroup": prod["category"],
+            "SubDepartmentId": 100 + random.randint(0, 5),
+            "Quantity": qty,
+            "UnitPrice": unit_price,
+            "TotalPrice": total_price,
+            "IsRefundItem": False,
+            "IsMerchandise": True,
+            "State": "ACTIVE",
+        })
+
+    tax_total = round(subtotal * 0.07, 2)
+    savings = round(subtotal * random.uniform(0, 0.15), 2)
+    basket = {
+        "StoreNumber": store_num,
+        "LaneNumber": random.randint(1, 6),
+        "TransactionId": str(uuid4().hex[:16]),
+        "StartTime": event_time.isoformat() + "Z",
+        "EndTime": (event_time + timedelta(seconds=random.randint(30, 300))).isoformat() + "Z",
+        "Subtotal": subtotal,
+        "Total": round(subtotal + tax_total - savings, 2),
+        "Savings": savings,
+        "TaxTotal": tax_total,
+        "BasketItems": basket_items,
+        "CashierDetails": [{"Username": f"cashier_{random.randint(1000, 9999)}", "Name": "Store Associate"}],
+    }
+    value = {
+        "Version": "1.0",
+        "RequestId": str(uuid4()),
+        "TicketNumber": f"TKT-{store_num}-{random.randint(100000, 999999)}",
+        "TransactionDateTime": event_time.isoformat() + "Z",
+        "Basket": basket,
+    }
     return {
-        "event_id": str(uuid4()),
-        "store_number": random.choice(STORE_NUMBERS),
-        "event_timestamp": iso_now(),
-        "item_id": p["id"],
-        "item_name": p["name"],
-        "item_category": p["category"],
-        "quantity_sold": qty,
-        "unit_price": float(p["price"]),
-        "total_amount": round(p["price"] * qty, 2),
-        "cashier_id": f"C{random.randint(1000, 9999)}",
-        "transaction_id": f"TX{uuid4().hex[:12]}",
-        "ingestion_time": iso_now(),
+        "partition": random.randint(0, 3),
+        "offset": random.randint(100000, 999999),
+        "timestamp": int(event_time.timestamp() * 1000),
+        "timestampType": 0,
+        "key": f"{store_num}:{event_time.strftime('%Y%m%d')}",
+        "value": value,
     }
 
 def generate_price_event():
-    """Generate a single price update event."""
-    p = random.choice(PRODUCTS)
-    new_price = round(p["price"] * random.uniform(0.95, 1.05), 2)
+    """Generate a single TPR price event (Kafka envelope, base64-encoded fields)."""
+    event_time = datetime.utcnow() - timedelta(hours=random.randint(0, 24))
+    prod = random.choice(PRODUCTS)
+    store_num = random.choice(STORE_NUMBERS)
+    price_type = random.choice(PRICE_TYPES)
+
+    selling_price = round(prod["base_price"] * random.uniform(0.95, 1.15), 2)
+    deal_price = round(selling_price * 0.90, 2) if price_type in ["DEAL", "CLEARANCE"] else 0.00
+    effective_date = event_time.date()
+    term_date = effective_date + timedelta(days=random.randint(7, 30))
+
+    data = {
+        "SystemId": "TPR_PRICING",
+        "EventType": "PRICE_UPDATE",
+        "Event_Id": str(uuid4()),
+        "Event_Timestamp": encode_field(event_time.isoformat() + "Z"),
+        "Item_Code": prod["code"],
+        "Store_Number": store_num,
+        "Price_Type": price_type,
+        "EventAction": random.choice(PRICE_ACTIONS),
+        "Effective_Date": encode_field(effective_date.isoformat()),
+        "Term_Date": encode_field(term_date.isoformat()),
+        "Selling_Price": encode_field(str(selling_price)),
+        "Deal_Price": encode_field(str(deal_price)),
+        "Break_Retail_Price": encode_field(str(round(selling_price * 1.05, 2))),
+        "Created_By": f"user_{random.randint(1000, 9999)}",
+        "Created_On": encode_field(datetime.utcnow().isoformat() + "Z"),
+    }
     return {
-        "event_id": str(uuid4()),
-        "event_timestamp": iso_now(),
-        "item_id": p["id"],
-        "item_name": p["name"],
-        "old_price": float(p["price"]),
-        "new_price": new_price,
-        "effective_date": datetime.utcnow().date().isoformat(),
-        "ingestion_time": iso_now(),
+        "key": f"{prod['code']}:{store_num}",
+        "data": data,
+        "topic": "publix.pricing.updates",
+        "partition": random.randint(0, 2),
+        "offset": random.randint(50000, 499999),
+        "timestamp": int(event_time.timestamp() * 1000),
     }
 
 try:
