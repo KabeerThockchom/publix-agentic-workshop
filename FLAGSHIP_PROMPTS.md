@@ -2,9 +2,28 @@
 
 # Flagship: StoreSight IQ - Genie Code build playbook
 
-We open the workshop with the finished **StoreSight IQ** app (real-time labor forecasting for Publix), then rebuild it **backward**, one layer at a time, with Genie Code. Each step below is a section: a short enablement beat, one **Genie Code prompt** (with the exact contract so it can't drift), and how to verify. Everything lands in `publix_labor_forecast.storesight_iq_publix` (use your own catalog/schema).
+We open the workshop with the finished **StoreSight IQ** app (real-time labor forecasting for Publix), then rebuild it **backward**, one layer at a time, with Genie Code. Each step below is a section: a short enablement beat, one **Genie Code prompt** (with the exact contract so it can't drift), and how to verify. Everything lands in your own schema `publix_labor_forecast.storesight_iq_<yourname>` - you set `<yourname>` once in Step 0 and Genie Code carries it through every step.
 
 The build order and full data-flow map: see the decomposition plan. Bronze is raw; silver/gold cast + aggregate; the labor model is the hero.
+
+---
+
+## Step 0 - Claim your namespace (do this first)
+
+**Enablement:** everyone builds in one shared workspace, so each participant works in their own schema and suffixes every workspace-global object (Model Serving endpoints, the Genie space, the app) with their name. Collisions - two people registering `labor_optimizer` or deploying `store-labor-planner` - break the room otherwise. Set the token once; Genie Code applies it to every later step.
+
+> **🧞 Genie Code**
+> ```
+> For this entire StoreSight IQ build, my namespace token is <yourname> (lowercase, no spaces, e.g. sai).
+> Use it everywhere, without me repeating it:
+> - every table, view, model, and pipeline goes in catalog publix_labor_forecast, schema storesight_iq_<yourname>
+> - Model Serving endpoints are named storesight-<model>-<yourname>
+> - the Genie space is named "Publix Store Analytics - <yourname>"
+> - the app is named "store-labor-planner-<yourname>"
+> Confirm my schema name back to me, then apply this convention to every step that follows.
+> ```
+> **Verify:** Genie Code echoes `storesight_iq_<yourname>` and the suffixed endpoint/space/app names.
+> *(Prefer zero typing? Instead tell Genie Code to derive the token from `SELECT current_user()` - the part before `@`, lowercased, dots to underscores.)*
 
 ---
 
@@ -14,7 +33,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 
 > **🧞 Genie Code**
 > ```
-> Create a Unity Catalog schema `storesight_iq_publix` in catalog `publix_labor_forecast`, then
+> Create a Unity Catalog schema `storesight_iq_<yourname>` in catalog `publix_labor_forecast`, then
 > these tables (USING DELTA), with realistic Publix grocery data:
 > - stores(store_id INT, name STRING, address STRING, city STRING, state STRING, lat DOUBLE,
 >   lng DOUBLE, region STRING, sqft INT, open_date DATE)  -- 24 real Publix stores (FL/Southeast)
@@ -39,7 +58,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 > **🧞 Genie Code**
 > ```
 > Build a Python Zerobus publisher (databricks-zerobus-ingest-sdk) that streams synthetic Publix
-> POS events into `publix_labor_forecast.storesight_iq_publix.pos_events_bronze`.
+> POS events into `publix_labor_forecast.storesight_iq_<yourname>.pos_events_bronze`.
 > Table (raw): event_id STRING, store_id INT, event_timestamp STRING, item_id INT, item_name STRING,
 >   category STRING, channel STRING, quantity INT, unit_price DOUBLE, total DOUBLE,
 >   payment_method STRING, ingestion_time STRING. Enable Change Data Feed.
@@ -60,7 +79,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 
 > **🧞 Genie Code**
 > ```
-> Over `publix_labor_forecast.storesight_iq_publix`, create:
+> Over `publix_labor_forecast.storesight_iq_<yourname>`, create:
 > - SILVER streaming table `silver_pos` from STREAM(pos_events_bronze): cast event_timestamp->TIMESTAMP
 >   (as event_ts), keep item_id INT, total DOUBLE; EXPECT event_id AND store_id NOT NULL ON VIOLATION
 >   DROP ROW; CLUSTER BY (store_id, item_id).
@@ -85,11 +104,11 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 > Train a labor-optimization model on mv_hourly_demand + labor_schedule: a multi-class classifier
 > predicting recommended staff (2-8) per store-hour from features [store_id, day_of_week, hour_of_day,
 > is_weekend, recent transaction lags]. Use gradient boosting; log with MLflow; register to Unity
-> Catalog as `publix_labor_forecast.ml.labor_optimizer`; deploy a Model Serving endpoint
-> `storesight-publix-labor-optimizer`. Report within-±1 accuracy. Handle class imbalance with balanced weights.
+> Catalog as `publix_labor_forecast.storesight_iq_<yourname>.labor_optimizer`; deploy a Model Serving
+> endpoint `storesight-labor-optimizer-<yourname>`. Report within-±1 accuracy. Handle class imbalance with balanced weights.
 > ```
 > Repeat the pattern for **demand-forecast**, **inventory-predictor**, **prep-scheduler** (each: train ->
-> register -> serve `storesight-publix-<name>`).
+> register to `storesight_iq_<yourname>` -> serve `storesight-<model>-<yourname>`).
 > **Verify:** `databricks serving-endpoints list` shows all 4 READY.
 
 ---
@@ -98,7 +117,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 
 **Enablement:** a manager asks in plain English, grounded on the governed gold + metric views - no SQL.
 
-> **🧞 (Genie UI or API)** Create a Genie space "Publix Store Analytics" on `mv_store_overview`,
+> **🧞 (Genie UI or API)** Create a Genie space "Publix Store Analytics - <yourname>" on `mv_store_overview`,
 > `mv_daily_sales`, `mv_hourly_demand`, `labor_metrics`. Instructions: labor_gap>0 = understaffed;
 > recommended is the ML forecast, scheduled is the plan; group by the grain asked. Sample questions:
 > "Which stores are understaffed at 5pm on Fridays?", "Labor cost % of revenue by store", "How many
@@ -126,10 +145,10 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 
 **Enablement:** describe the app in plain English; Genie App Builder generates it, embeds the Genie space, and deploys a Serverless Micro App - data-aware, no wiring.
 
-> **🧞 Genie App Builder** (Apps -> Build -> select App Space -> "Store Labor Planner")
+> **🧞 Genie App Builder** (Apps -> Build -> select App Space -> "store-labor-planner-<yourname>")
 > ```
 > Build a real-time labor dashboard for a Publix store manager using mv_store_overview,
-> mv_hourly_demand, labor_metrics and the "Publix Store Analytics" Genie space. Publix green #3E902D.
+> mv_hourly_demand, labor_metrics and the "Publix Store Analytics - <yourname>" Genie space. Publix green #3E902D.
 > - Store selector filtering the page.
 > - KPI cards: forecast transactions/hour, recommended vs scheduled associates, labor gap (red if understaffed).
 > - Hourly chart: scheduled vs ML-optimal staffing across the day.
