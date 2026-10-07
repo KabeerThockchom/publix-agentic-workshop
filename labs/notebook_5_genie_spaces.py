@@ -5,7 +5,7 @@
 # MAGIC
 # MAGIC **Goal:** Build a production Genie Agent on your gold-layer data so business users can ask questions in plain English. ~20 minutes.
 # MAGIC
-# MAGIC You now have your own `publix_agentic_<yourname>.medallion.gold_store_item_daily` (from Notebook 4). This notebook makes it self-serve: you will create a Genie space, write instructions, add example questions, test, and enable Genie One routing. Your team can then ask "What drove revenue last week?" and get an answer.
+# MAGIC You now have your own `publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily` (from Notebook 4). This notebook makes it self-serve: you will create a Genie space, write instructions, add example questions, test, and enable Genie One routing. Your team can then ask "What drove revenue last week?" and get an answer.
 
 # COMMAND ----------
 
@@ -30,9 +30,10 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Your Catalog
+# MAGIC ## Your Schema
 # MAGIC
-# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC You all share one workspace and the shared `publix_technology` catalog.
+# MAGIC Each participant builds in their OWN schema.
 # MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
 
 # COMMAND ----------
@@ -40,8 +41,9 @@
 dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
 name = dbutils.widgets.get("my_name")
 assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
-CATALOG = f"publix_agentic_{name}"
-print(f"Your catalog: {CATALOG}")
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{name}"
+print(f"Your schema: {CATALOG}.{SCHEMA}")
 
 # COMMAND ----------
 
@@ -56,13 +58,13 @@ spark.sql(f"""
 SELECT count(*) as row_count,
        min(sales_date) as oldest_date,
        max(sales_date) as newest_date
-FROM {CATALOG}.medallion.gold_store_item_daily
+FROM {CATALOG}.{SCHEMA}.gold_store_item_daily
 """).display()
 
 # COMMAND ----------
 
 spark.sql(f"""
-SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
+SELECT * FROM {CATALOG}.{SCHEMA}.gold_store_item_daily LIMIT 3
 """).display()
 
 # COMMAND ----------
@@ -89,7 +91,7 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC **Path 2: Genie UI (quick manual alternative)**
 # MAGIC
 # MAGIC For a fast one-off, click **Genie** (sidebar) -> **New Space**, name it `Store & Item Sales Agent`,
-# MAGIC pick warehouse `publix-workshop-wh`, add table `publix_agentic_<yourname>.medallion.gold_store_item_daily` (use YOUR catalog),
+# MAGIC pick warehouse `publix-workshop-wh`, add table `publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily` (use YOUR schema),
 # MAGIC and **Save**. Good for exploring; use Path 1 for anything you want to ship and reproduce.
 
 # COMMAND ----------
@@ -104,7 +106,7 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC > I'm building a Genie Agent for Publix store operations analysts.
 # MAGIC > They will ask about daily store and item sales performance.
 # MAGIC >
-# MAGIC > Table: publix_agentic_<yourname>.medallion.gold_store_item_daily (use YOUR catalog)
+# MAGIC > Table: publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily (use YOUR schema)
 # MAGIC > Columns: store_number, item_sku, item_name, item_family,
 # MAGIC >          sales_date, num_transactions, units_sold, revenue, line_item_count
 # MAGIC >
@@ -132,7 +134,7 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC > ```
 # MAGIC > Generate 3 certified example questions + exact SQL for a Publix store sales Genie Agent.
 # MAGIC >
-# MAGIC > Table: publix_agentic_<yourname>.medallion.gold_store_item_daily (use YOUR catalog)
+# MAGIC > Table: publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily (use YOUR schema)
 # MAGIC >
 # MAGIC > Include:
 # MAGIC > 1. Top items by revenue last week
@@ -171,11 +173,11 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC Attach a metric view to track agent quality and usage. Metric views are defined via a YAML spec inside a UC view:
 # MAGIC
 # MAGIC ```sql
-# MAGIC -- Replace publix_agentic_workshop with your own publix_agentic_<yourname>
-# MAGIC CREATE OR REPLACE VIEW publix_agentic_<yourname>.medallion.store_performance_metric_view
+# MAGIC -- Use the shared catalog publix_technology and your schema agentic_ai_training_<yourname>
+# MAGIC CREATE OR REPLACE VIEW publix_technology.agentic_ai_training_<yourname>.store_performance_metric_view
 # MAGIC   WITH METRICS LANGUAGE YAML AS $$
 # MAGIC version: 1.0
-# MAGIC source: publix_agentic_<yourname>.medallion.gold_store_item_daily
+# MAGIC source: publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily
 # MAGIC dimensions:
 # MAGIC   - name: store_number
 # MAGIC     expr: store_number
@@ -196,13 +198,13 @@ SELECT * FROM {CATALOG}.medallion.gold_store_item_daily LIMIT 3
 # MAGIC Query the metric view using the MEASURE() function:
 # MAGIC
 # MAGIC ```sql
-# MAGIC -- Replace publix_agentic_workshop with your own publix_agentic_<yourname>
+# MAGIC -- Use the shared catalog publix_technology and your schema agentic_ai_training_<yourname>
 # MAGIC SELECT
 # MAGIC   store_number,
 # MAGIC   sales_date,
 # MAGIC   MEASURE(total_revenue) as revenue,
 # MAGIC   MEASURE(total_units) as units
-# MAGIC FROM publix_agentic_<yourname>.medallion.store_performance_metric_view
+# MAGIC FROM publix_technology.agentic_ai_training_<yourname>.store_performance_metric_view
 # MAGIC GROUP BY store_number, sales_date;
 # MAGIC ```
 # MAGIC

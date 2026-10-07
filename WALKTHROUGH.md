@@ -19,7 +19,7 @@ The pattern the audience should feel every time: **Describe -> Genie Code genera
 The agent is fast; your review is the guardrail. Say that out loud on step 1 and don't stop saying it.
 
 Workspace: `https://adb-<workspace-id>.<n>.azuredatabricks.net`.
-Catalog: everyone shares this workspace, so **each person builds in their own catalog** - `publix_agentic_<yourname>` (schemas `bronze`, `medallion`). Kabeer demos with `publix_agentic_<yourname>`. Throughout this sheet, wherever a prompt says `publix_agentic_workshop`, read it as your own `publix_agentic_<yourname>` (lowercase, no spaces).
+Catalog/Schema: everyone shares this workspace and the shared `publix_technology` catalog, so **each person builds in their own schema** - `agentic_ai_training_<yourname>` (all layers in one schema). Kabeer demos with `agentic_ai_training_<yourname>`. Throughout this sheet, wherever a prompt says `publix_agentic_workshop`, read it as your own `publix_technology.agentic_ai_training_<yourname>` (lowercase, no spaces).
 The already-built reference (Genie space, pipeline, apps) still exists - a live run rebuilds fresh copies, so IDs will differ from 72.16/72.18. That's fine; verify by the UI, not by ID.
 
 ---
@@ -39,9 +39,9 @@ Laptop (the one local piece):
 
 ## Instructor prep - empty workspace (done ahead of the session, not a live step)
 
-The room opens on an **empty** workspace and builds from scratch starting at Step 1.
+The room opens on a **clean** workspace and builds from scratch starting at Step 1.
 The clean slate is done ahead of time, not on-screen - participants never run a "drop everything."
-Torn down before the session: the `publix_agentic_workshop` catalog, the `publix-medallion` pipeline, the `publix-zerobus-publisher` job, the Store Pulse app, and the Genie space.
+Before the session, clean up old participant schemas from `publix_technology` (e.g., drop `agentic_ai_training_*` schemas), the `publix-medallion` pipeline, the `publix-zerobus-publisher` job, the Store Pulse app, and any Genie spaces from previous runs.
 Kept: the Build Studio app (the take-home), the **Zerobus service principal** `publix-zerobus-publisher` (app id `<zerobus-sp-app-id>`), and the `publix_workshop` secret scope.
 
 **The SP is one-time admin prep** (repo `SETUP_SERVICE_PRINCIPAL.md`): the publisher runs from the laptop as this SP, so participants only need their workspace login. But its **grants live inside the catalog** - dropping the catalog dropped them, so the SP is re-granted as the last beat of Step 1 (below). Skip that and the publisher 401s.
@@ -96,7 +96,7 @@ Kept: the Build Studio app (the take-home), the **Zerobus service principal** `p
    # workspace values (swap the workspace id/region for a participant's own)
    export ZEROBUS_SERVER_ENDPOINT="https://<workspace-id>.zerobus.<region>.azuredatabricks.net"
    export DATABRICKS_WORKSPACE_URL="https://adb-<workspace-id>.<n>.azuredatabricks.net"
-   export WORKSHOP_CATALOG="publix_agentic_<yourname>"   # your catalog from Step 1 - the publisher writes here
+   export WORKSHOP_SCHEMA="agentic_ai_training_<yourname>"   # your schema from Step 1 - the publisher writes here
 
    # service-principal creds - pulled from the secret scope so nothing is typed on screen
    export DATABRICKS_CLIENT_ID=$(databricks secrets get-secret publix_workshop zerobus_client_id --profile publix-workshop -o json | python3 -c "import sys,json,base64;print(base64.b64decode(json.load(sys.stdin)['value']).decode())")
@@ -122,9 +122,10 @@ Kept: the Build Studio app (the take-home), the **Zerobus service principal** `p
 **Prompt:**
 > Create the Unity Catalog foundation for a Publix real-time sales workshop.
 > IMPORTANT: These are raw Kafka envelopes - do NOT flatten them (silver will explode and decode later).
-> - Catalog `publix_agentic_<yourname>`
-> - Schemas: `bronze` (raw ingest), `medallion` (silver + gold)
-> - Bronze table `bronze.pos_sales_raw` (USING DELTA, enable Change Data Feed): Kafka envelope structure
+> - Shared Catalog: `publix_technology`
+> - Per-participant Schema: `agentic_ai_training_<yourname>`
+> - Tables in your schema (USING DELTA, enable Change Data Feed on all):
+> - Table `pos_sales_raw`: Kafka envelope structure
 >   with nested value.Basket.BasketItems array (Gtin, Sku, Name, FamilyGroup, Quantity, UnitPrice, TotalPrice)
 > - Bronze table `bronze.price_updates_raw` (USING DELTA, enable Change Data Feed): Kafka envelope with
 >   base64-encoded data fields (Event_Timestamp, Effective_Date, Selling_Price, Deal_Price)
@@ -133,14 +134,14 @@ Kept: the Build Studio app (the take-home), the **Zerobus service principal** `p
 
 **Why keep nested + base64:** Auto Loader lands raw JSON from Kafka topics exactly as-is. Silver is where we explode nested arrays and decode base64 fields. This preserves the full fidelity of the source systems (POSA and TPR) - if the source changes, we see it.
 
-**Verify:** Catalog Explorer -> `publix_agentic_<yourname>` -> you see `bronze` and `medallion`, under `bronze` see both `pos_sales_raw` and `price_updates_raw` tables, and the `kafka_landing` Volume. Point at the Change Data Feed property on the tables.
+**Verify:** Catalog Explorer -> `publix_technology` -> `agentic_ai_training_<yourname>` -> you see `pos_sales_raw` and `price_updates_raw` tables and the `kafka_landing` Volume (all in the same schema). Point at the Change Data Feed property on the tables.
 
 **Then grant the publisher SP (do this now, or Step 2 will 401):** the Zerobus publisher writes as the shared `publix-zerobus-publisher` service principal. You **own** the catalog you just made, so you grant that SP write on your own bronze schema (the SP app id is public - share it with the room). Paste into SQL Editor (or ask Genie Code to run it), with your catalog name:
 ```
-GRANT USE CATALOG ON CATALOG publix_agentic_<yourname> TO `<zerobus-sp-app-id>`;
-GRANT USE SCHEMA  ON SCHEMA  publix_agentic_<yourname>.bronze TO `<zerobus-sp-app-id>`;
-GRANT INSERT ON TABLE publix_agentic_<yourname>.bronze.pos_sales_raw TO `<zerobus-sp-app-id>`;
-GRANT INSERT ON TABLE publix_agentic_<yourname>.bronze.price_updates_raw TO `<zerobus-sp-app-id>`;
+GRANT USE CATALOG ON CATALOG publix_technology TO `<zerobus-sp-app-id>`;
+GRANT USE SCHEMA  ON SCHEMA  publix_technology.agentic_ai_training_<yourname> TO `<zerobus-sp-app-id>`;
+GRANT INSERT ON TABLE publix_technology.agentic_ai_training_<yourname>.pos_sales_raw TO `<zerobus-sp-app-id>`;
+GRANT INSERT ON TABLE publix_technology.agentic_ai_training_<yourname>.price_updates_raw TO `<zerobus-sp-app-id>`;
 ```
 `MODIFY` = write. Everyone grants the **same** SP on their **own** catalog (no admin rights, no per-person SP needed). Same grant is baked into `notebook_1` Part 4. **Say:** "Streaming ingest runs as a service identity, not as me - so I give that identity permission to write to my catalog, once."
 
@@ -155,17 +156,17 @@ GRANT INSERT ON TABLE publix_agentic_<yourname>.bronze.price_updates_raw TO `<ze
 > Build a Python Zerobus publisher for Databricks. It should:
 > - Use the Zerobus Ingest SDK (databricks-zerobus-ingest-sdk)
 > - Connect to the workspace Zerobus endpoint, auth via service principal (client id + secret from env)
-> - Define two streams: `publix_agentic_<yourname>.bronze.pos_sales_raw` (POSA Kafka envelope with nested Basket)
+> - Define two streams: `publix_technology.agentic_ai_training_<yourname>.pos_sales_raw` (POSA Kafka envelope with nested Basket)
 >   and `bronze.price_updates_raw` (TPR Kafka envelope with base64-encoded fields)
 > - For 60s publish synthetic events: 3-6 POSA sales/sec (nested Basket with 1-8 items per store),
 >   occasional TPR price updates (base64-encode Selling_Price and Effective_Date)
 > - Fire-and-forget (`ingest_record_nowait`), flush + close cleanly
 
 **Run (laptop, the only command you type live - in the terminal from the uv Setup, venv active + env vars set):**
-`WORKSHOP_CATALOG=publix_agentic_<yourname> DURATION_SECONDS=30 python src/zerobus/publisher.py`
+`WORKSHOP_SCHEMA=agentic_ai_training_<yourname> DURATION_SECONDS=30 python src/zerobus/publisher.py`
 It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `source .venv/bin/activate` and re-export first.)
 
-**Verify (in the UI):** Catalog Explorer -> `bronze.pos_sales_raw` -> **Sample Data** tab, refresh -> rows are landing (check value.Basket.StoreNumber and value.Basket.BasketItems array). For a number on screen, open **SQL Editor** and run `SELECT count(*), COUNT(DISTINCT value.Basket.StoreNumber) as stores FROM publix_agentic_<yourname>.bronze.pos_sales_raw` before and after - the count jumps, stores match (8 distinct values).
+**Verify (in the UI):** Catalog Explorer -> `publix_technology` -> `agentic_ai_training_<yourname>` -> `pos_sales_raw` -> **Sample Data** tab, refresh -> rows are landing (check value.Basket.StoreNumber and value.Basket.BasketItems array). For a number on screen, open **SQL Editor** and run `SELECT count(*), COUNT(DISTINCT value.Basket.StoreNumber) as stores FROM publix_technology.agentic_ai_training_<yourname>.pos_sales_raw` before and after - the count jumps, stores match (8 distinct values).
 
 **If it 401s (`invalid_authorization_details`):** you skipped the SP grant in Step 1, or the catalog was recreated after the grant. Run the three GRANTs from Step 1, then re-run the publisher.
 
@@ -179,7 +180,7 @@ It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `sou
 **Say:** "Raw data isn't trustworthy yet. Spark Declarative Pipelines let us declare the transform and the quality rules - Databricks builds the DAG, runs it serverless, tracks lineage end to end. We describe silver and gold; Genie Code writes the SQL."
 **Do:** Paste the prompt, review the two SQL transforms. Then Workflows -> Pipelines (Lakeflow) -> Create pipeline -> Serverless -> point it at the generated SQL -> Start. (Or let Genie Code scaffold the pipeline and just hit Start in the UI.)
 **Prompt:**
-> Create a Spark Declarative Pipeline in SQL over `publix_agentic_<yourname>`:
+> Create a Spark Declarative Pipeline in SQL over `publix_technology.agentic_ai_training_<yourname>`:
 > - SILVER `medallion.silver_pos_sales`: streaming table reading STREAM(bronze.pos_sales_raw); explodes value.Basket.BasketItems to one row per line item; extracts store_number, transaction_id, start_time, item_sku, item_gtin, item_name, item_family, quantity, unit_price, total_price; EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_sku).
 > - SILVER `medallion.silver_tpr_prices`: streaming table reading STREAM(bronze.price_updates_raw); base64-decodes Event_Timestamp, Effective_Date, Term_Date, Selling_Price, Deal_Price; extracts event_id, item_code, store_number, price_type, event_timestamp, selling_price, deal_price, effective_date; EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW; CLUSTER BY (store_number, item_code).
 > - GOLD `medallion.gold_store_item_daily`: materialized view aggregating silver_pos_sales by store_number, item_sku, item_gtin, item_name, item_family, sales_date (CAST(start_time AS DATE)) -> COUNT(DISTINCT transaction_id) as num_transactions, SUM(quantity) as units_sold, SUM(total_price) as revenue, COUNT(*) as line_item_count, MIN/MAX/AVG(unit_price). (Price lives in silver_tpr_prices; weave it in at analysis time.)
@@ -201,7 +202,7 @@ It prints `[OK] Published N sales events.` (If you opened a fresh terminal: `sou
 > Use the YAML metric-view syntax (version 1.0, source in the YAML, no trailing SELECT). Give me the CREATE statement to run in the SQL editor, then a MEASURE() query to test it.
 
 **Verify (in the UI):** SQL Editor result grid for
-`SELECT store_number, MEASURE(total_revenue) AS rev FROM publix_agentic_workshop.medallion.store_performance_metric_view GROUP BY store_number ORDER BY rev DESC` -
+`SELECT store_number, MEASURE(total_revenue) AS rev FROM publix_technology.agentic_ai_training_<yourname>.store_performance_metric_view GROUP BY store_number ORDER BY rev DESC` -
 stores ranked by revenue, top store ~104. No raw SUM anywhere - the governed measure did it.
 
 ---
@@ -222,7 +223,7 @@ stores ranked by revenue, top store ~104. No raw SUM anywhere - the governed mea
 **Prereq (admin, before the room):** enable the **Governed agentic app-building** preview; create an **App Space** with the SQL warehouse + gold table + the Store Performance Genie space (as a Genie Agent resource) added; grant builders **CAN CREATE APP**. If the preview isn't on, skip to the reference app below.
 **Do:** Apps home -> **Build** -> select the App Space -> name it "Store Pulse" -> paste the prompt.
 **Prompt (from `labs/PROMPTS.md`, Notebook 6, Path A):**
-> Build a store operations dashboard for a Publix store manager, using the gold table `publix_agentic_workshop.medallion.gold_store_item_daily` and the "Store Performance" Genie space in this App Space.
+> Build a store operations dashboard for a Publix store manager, using the gold table `publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily` and the "Store Performance" Genie space in this App Space.
 > - A store selector (store_number) at the top that filters the whole page.
 > - KPI cards: total revenue, total units sold, and number of items sold, for the selected store.
 > - A ranked horizontal bar chart of the top 10 items by revenue for the selected store.

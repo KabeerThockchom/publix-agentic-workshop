@@ -43,8 +43,8 @@ sync:
 
 variables:
   catalog:
-    description: Unity Catalog (must already exist)
-    default: publix_labor_forecast
+    description: Shared Unity Catalog for the workshop (publix_technology)
+    default: publix_technology
   schema:
     description: Schema created by the setup job
     default: storesight_iq_publix

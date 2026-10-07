@@ -40,6 +40,6 @@ SELECT
   -- Cashier info (first from array)
   value.Basket.CashierDetails[0].Username AS cashier_username,
   value.Basket.CashierDetails[0].Name AS cashier_name
-FROM STREAM(bronze.pos_sales_raw)
+FROM STREAM(pos_sales_raw)
 -- Explode each line item in the basket
 LATERAL VIEW EXPLODE(value.Basket.BasketItems) exploded_items AS item

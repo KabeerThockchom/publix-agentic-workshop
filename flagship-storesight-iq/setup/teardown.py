@@ -26,7 +26,7 @@
 
 # Naming is passed by the bundle teardown job (base_parameters); the defaults are
 # rewritten per-customer by accelerator/generate.py so a standalone run also works.
-dbutils.widgets.text("catalog", "publix_labor_forecast")
+dbutils.widgets.text("catalog", "publix_technology")
 dbutils.widgets.text("schema", "storesight_iq_publix")
 dbutils.widgets.text("resource_prefix", "storesight-publix")
 dbutils.widgets.text("genie_space_name", "Publix Store Analytics")

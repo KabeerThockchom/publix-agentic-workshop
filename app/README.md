@@ -10,12 +10,12 @@ Lakebase, and answers natural-language questions via Genie.
 ## Features
 
 1. **Store performance dashboard** - revenue + units by store/item, top stores, and a
-   revenue trend, read live from `publix_agentic_workshop.medallion.gold_store_item_daily`
+   revenue trend, read live from `publix_technology.agentic_ai_training_workshop.gold_store_item_daily`
    via the SQL warehouse (`publix-workshop-wh`,
    `<warehouse-id>`) using SDK statement execution.
-   *Note: Workshop participants should override the catalog in `app.yaml` to point at their own `publix_agentic_<yourname>` catalog.*
-2. **Price watch** - recent item price changes from `publix_agentic_workshop.medallion.silver_tpr_prices` or the gold aggregates.
-   *Note: Workshop participants should override the catalog to point at their own `publix_agentic_<yourname>` catalog.*
+   *Note: Workshop participants should override the schema in `app.yaml` to point at their own `agentic_ai_training_<yourname>` schema.*
+2. **Price watch** - recent item price changes from `publix_technology.agentic_ai_training_workshop.silver_tpr_prices` or the gold aggregates.
+   *Note: Workshop participants should override the schema to point at their own `agentic_ai_training_<yourname>` schema.*
 3. **Action panel** - submit refund / price_override / whatif -> INSERT into Lakebase
    `public.store_actions` (instance `<lakebase-instance>`, database `publix_app`); recent
    actions listed below (SELECT). This is the read-write OLTP piece.

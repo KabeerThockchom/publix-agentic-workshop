@@ -18,7 +18,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "publix_labor_forecast")
+dbutils.widgets.text("catalog", "publix_technology")
 dbutils.widgets.text("schema", "storesight_iq_publix")
 dbutils.widgets.text("genie_space_name", "Publix Store Analytics")
 dbutils.widgets.text("genie_description", "AI assistant for Publix store operations - labor forecasting, sales, fresh production (deli/bakery), inventory, and curbside.")

@@ -11,7 +11,7 @@ export default function PriceWatch() {
   }, []);
 
   return (
-    <Card title="Price watch" subtitle="Recent item price changes (bronze.price_updates)" accent>
+    <Card title="Price watch" subtitle="Recent item price changes (price_updates)" accent>
       {error && <p className="text-sm text-lava">Failed to load: {error}</p>}
       {!error && (
         <div className="max-h-[420px] overflow-y-auto">

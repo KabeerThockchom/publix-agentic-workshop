@@ -70,7 +70,7 @@ print("✓ All libraries imported successfully")
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "publix_labor_forecast")
+dbutils.widgets.text("catalog", "publix_technology")
 dbutils.widgets.text("schema", "storesight_iq_publix")
 dbutils.widgets.text("resource_prefix", "storesight-publix")
 dbutils.widgets.text("domain_json_path", "")

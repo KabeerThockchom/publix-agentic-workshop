@@ -9,7 +9,7 @@ Config comes from environment (no secrets in code):
   DATABRICKS_WORKSPACE_URL  https://adb-<workspace-id>.<n>.azuredatabricks.net
   DATABRICKS_CLIENT_ID      service principal application id (MODIFY on the bronze table)
   DATABRICKS_CLIENT_SECRET  service principal secret
-  TARGET_TABLE              default publix_labor_forecast.storesight_iq_publix.pos_events_bronze
+  TARGET_TABLE              default publix_technology.storesight_iq_publix.pos_events_bronze
   DURATION_SECONDS          how long to publish (default 60)
 
 Install: pip install databricks-zerobus-ingest-sdk
@@ -25,7 +25,7 @@ from zerobus.sdk.sync import ZerobusSdk
 from zerobus.sdk.shared import RecordType, StreamConfigurationOptions, TableProperties
 
 TARGET_TABLE = os.environ.get(
-    "TARGET_TABLE", "publix_labor_forecast.storesight_iq_publix.pos_events_bronze"
+    "TARGET_TABLE", "publix_technology.storesight_iq_publix.pos_events_bronze"
 )
 SERVER_ENDPOINT = os.environ["ZEROBUS_SERVER_ENDPOINT"]
 WORKSPACE_URL = os.environ["DATABRICKS_WORKSPACE_URL"]

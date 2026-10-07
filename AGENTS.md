@@ -10,8 +10,8 @@ not already stated, ask once, or derive it from `SELECT current_user()` (the par
 lowercased, dots to underscores). Then apply it to **every** object you create, without being
 reminded:
 
-- **Medallion track** (`labs/`): catalog `publix_agentic_<yourname>`, schemas `bronze` / `medallion`.
-- **Flagship track** (`FLAGSHIP_PROMPTS.md`): catalog `publix_labor_forecast`, schema `storesight_iq_<yourname>`.
+- **Medallion track** (`labs/`): shared catalog `publix_technology`, schema `agentic_ai_training_<yourname>` (all layers in one schema).
+- **Flagship track** (`FLAGSHIP_PROMPTS.md`): shared catalog `publix_technology`, schema `storesight_iq_<yourname>`.
 - **Workspace-global names must carry the suffix** - they collide across participants otherwise:
   - Model Serving endpoints -> `storesight-<model>-<yourname>`
   - Genie space -> `"Publix Store Analytics - <yourname>"`

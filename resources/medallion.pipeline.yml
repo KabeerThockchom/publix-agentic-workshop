@@ -1,9 +1,15 @@
+variables:
+  catalog:
+    default: publix_technology
+  schema:
+    default: agentic_ai_training_workshop
+
 resources:
   pipelines:
     medallion:
       name: "[${bundle.target}] publix-medallion"
       catalog: ${var.catalog}
-      schema: medallion
+      schema: ${var.schema}
       serverless: true
       channel: CURRENT
       libraries:

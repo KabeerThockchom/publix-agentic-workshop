@@ -6,11 +6,11 @@ include:
 
 variables:
   catalog:
-    description: Unity Catalog for the workshop. Each participant should override this to their own publix_agentic_<yourname> (e.g., publix_agentic_sai).
-    default: publix_agentic_workshop
-  bronze_schema:
-    description: Schema holding the Zerobus landing tables.
-    default: bronze
+    description: Shared Unity Catalog for the workshop (all participants use this).
+    default: publix_technology
+  schema:
+    description: Per-participant schema (each participant overrides to agentic_ai_training_<yourname>).
+    default: agentic_ai_training_workshop
 
 targets:
   dev:
@@ -20,5 +20,5 @@ targets:
       # Profile added once the FEVM workspace is Active (databricks auth login ... -p publix-workshop)
       profile: publix-workshop
     variables:
-      catalog: publix_agentic_workshop
-      bronze_schema: bronze
+      catalog: publix_technology
+      schema: agentic_ai_training_workshop

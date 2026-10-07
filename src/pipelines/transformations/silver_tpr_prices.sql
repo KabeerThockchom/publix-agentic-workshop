@@ -39,4 +39,4 @@ SELECT
   data.Vendor_Number AS vendor_number,
   data.Created_By AS created_by,
   CAST(CAST(UNBASE64(data.Created_On) AS STRING) AS TIMESTAMP) AS created_on
-FROM STREAM(bronze.price_updates_raw)
+FROM STREAM(price_updates_raw)

@@ -14,9 +14,10 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Your Catalog
+# MAGIC ## Your Schema
 # MAGIC
-# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC You all share one workspace and the shared `publix_technology` catalog.
+# MAGIC Each participant builds in their OWN schema.
 # MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
 
 # COMMAND ----------
@@ -24,8 +25,9 @@
 dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
 name = dbutils.widgets.get("my_name")
 assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
-CATALOG = f"publix_agentic_{name}"
-print(f"Your catalog: {CATALOG}")
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{name}"
+print(f"Your schema: {CATALOG}.{SCHEMA}")
 
 # COMMAND ----------
 
@@ -33,7 +35,7 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC ## What you will build
 # MAGIC
 # MAGIC A **Store & Item Insights** Databricks App that queries your gold table
-# MAGIC (your own `publix_agentic_<yourname>.medallion.gold_store_item_daily`). Show top-selling items by store,
+# MAGIC (your own `publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily`). Show top-selling items by store,
 # MAGIC let users filter by store and date range, all SQL-backed and governed.
 # MAGIC
 # MAGIC **Two paths to the same result:**
@@ -53,12 +55,12 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC 2. **Name it** `store-item-insights`
 # MAGIC 3. **Choose Mode:** Select "snapshot" (static query) or "interactive" (with parameters)
 # MAGIC 4. **Wire to warehouse** - Select `publix-workshop-wh` as your SQL warehouse
-# MAGIC 5. **Add your query** (replace `publix_agentic_workshop` with your own `publix_agentic_<yourname>`):
+# MAGIC 5. **Add your query** (use the shared catalog publix_technology and your own schema agentic_ai_training_<yourname>):
 # MAGIC    ```sql
 # MAGIC    SELECT
 # MAGIC      store_number, item_sku, item_name, item_family,
 # MAGIC      sales_date, units_sold, revenue, line_item_count
-# MAGIC    FROM publix_agentic_<yourname>.medallion.gold_store_item_daily
+# MAGIC    FROM publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily
 # MAGIC    WHERE sales_date >= CURRENT_DATE - 30
 # MAGIC    ORDER BY revenue DESC
 # MAGIC    LIMIT 100
@@ -106,8 +108,8 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC                  warehouse_id=os.getenv("WAREHOUSE_ID")) as conn:
 # MAGIC        query = """
 # MAGIC        SELECT store_number, item_sku, item_name, revenue, units_sold
-# MAGIC        FROM publix_agentic_<yourname>.medallion.gold_store_item_daily
-# MAGIC        """  # Replace publix_agentic_workshop with your own publix_agentic_<yourname>
+# MAGIC        FROM publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily
+# MAGIC        """  # Use shared catalog publix_technology and your schema agentic_ai_training_<yourname>
 # MAGIC        if store_id:
 # MAGIC            query += f" WHERE store_number = {store_id}"
 # MAGIC        query += " ORDER BY revenue DESC LIMIT " + str(limit)

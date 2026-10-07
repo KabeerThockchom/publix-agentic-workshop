@@ -13,11 +13,11 @@ IS_DATABRICKS_APP = bool(os.environ.get("DATABRICKS_APP_NAME"))
 
 # --- Resource / model config (override via env in app.yaml) ---
 WAREHOUSE_ID = os.environ.get("DATABRICKS_WAREHOUSE_ID", "<warehouse-id>")
-# Each workshop participant should set PUBLIX_CATALOG to their own publix_agentic_<yourname>
-# Default below is the reference app's catalog; participants override it in app.yaml or environment
-CATALOG = os.environ.get("PUBLIX_CATALOG", "publix_agentic_workshop")
-GOLD_TABLE = f"{CATALOG}.medallion.gold_store_item_daily"
-PRICE_TABLE = f"{CATALOG}.medallion.silver_tpr_prices"
+# Shared catalog for all participants; each participant has their own schema
+CATALOG = os.environ.get("PUBLIX_CATALOG", "publix_technology")
+SCHEMA = os.environ.get("PUBLIX_SCHEMA", "agentic_ai_training_workshop")
+GOLD_TABLE = f"{CATALOG}.{SCHEMA}.gold_store_item_daily"
+PRICE_TABLE = f"{CATALOG}.{SCHEMA}.silver_tpr_prices"
 
 # Lakebase endpoint resource path (used to mint a Postgres OAuth credential).
 LAKEBASE_ENDPOINT = (

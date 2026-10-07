@@ -5,9 +5,9 @@ Copy, adapt, make them yours. The pattern: **describe → generate → review �
 
 This playbook is organized by **notebook** so you know when and how to use each prompt.
 
-> **You all share one workspace, so build in your OWN catalog.** Everywhere a prompt says
-> `publix_agentic_workshop`, use `publix_agentic_<yourname>` instead (e.g. `publix_agentic_sai`).
-> Keep it lowercase, no spaces. Your catalog, your schemas, your Genie space, your app - end to end.
+> **You all share one workspace and the shared `publix_technology` catalog.** Each participant builds in their OWN schema.
+> Everywhere a prompt says `publix_agentic_<yourname>`, use `publix_technology.agentic_ai_training_<yourname>` instead (e.g. `publix_technology.agentic_ai_training_sai`).
+> Keep it lowercase, no spaces. Your schema, your tables, your Genie space, your app - end to end.
 
 ---
 
@@ -40,9 +40,9 @@ when you run the publisher. SP setup is in `SETUP_SERVICE_PRINCIPAL.md`.
 > - Use the Zerobus Ingest SDK (install: pip install databricks-zerobus-ingest-sdk)
 > - Connect to the Zerobus endpoint: https://<workspace-id>.zerobus.eastus.azuredatabricks.net
 > - Authenticate using a service principal (app_id and secret from Databricks secret scope publix_workshop)
-> - Define two Zerobus streams (use YOUR catalog publix_agentic_<yourname>):
->   1. publix_agentic_<yourname>.bronze.pos_sales_raw (POSA Kafka envelope with nested value.Basket.BasketItems array)
->   2. publix_agentic_<yourname>.bronze.price_updates_raw (TPR Kafka envelope with base64-encoded data fields)
+> - Define two Zerobus streams (use the shared catalog publix_technology and YOUR schema agentic_ai_training_<yourname>):
+>   1. publix_technology.agentic_ai_training_<yourname>.pos_sales_raw (POSA Kafka envelope with nested value.Basket.BasketItems array)
+>   2. publix_technology.agentic_ai_training_<yourname>.price_updates_raw (TPR Kafka envelope with base64-encoded data fields)
 > - For 60 seconds, publish synthetic events:
 >   - 3-6 POSA sales per second (nested Basket with 1-8 items, store number, cashier, tenders)
 >   - Occasional TPR price updates (10% chance per second, base64-encode Selling_Price and Effective_Date)
@@ -67,8 +67,8 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Build a streaming table called silver_pos_sales in publix_agentic_<yourname>.medallion that:
-> - Reads from STREAM(bronze.pos_sales_raw)
+> Build a streaming table called silver_pos_sales in publix_technology.agentic_ai_training_<yourname> that:
+> - Reads from STREAM(pos_sales_raw)
 > - Explodes value.Basket.BasketItems to one row per line item
 > - Extracts: store_number (value.Basket.StoreNumber), transaction_id (value.Basket.TransactionId),
 >   start_time (CAST(value.Basket.StartTime to TIMESTAMP)), item_sku (Sku), item_gtin (Gtin),
@@ -83,8 +83,8 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Build a streaming table called silver_tpr_prices in publix_agentic_<yourname>.medallion that:
-> - Reads from STREAM(bronze.price_updates_raw)
+> Build a streaming table called silver_tpr_prices in publix_technology.agentic_ai_training_<yourname> that:
+> - Reads from STREAM(price_updates_raw)
 > - Base64-decodes: data.Event_Timestamp, data.Effective_Date, data.Term_Date, data.Selling_Price, data.Deal_Price
 > - Extracts: event_id (data.Event_Id), item_code (data.Item_Code), store_number (data.Store_Number),
 >   price_type (data.Price_Type), event_timestamp (CAST decoded AS TIMESTAMP),
@@ -99,7 +99,7 @@ Save the generated code to `src/zerobus/publisher.py`. Compare your output to th
 
 > **🧞 Prompt for Genie Code**
 > ```
-> Build a materialized view called gold_store_item_daily in the medallion schema that:
+> Build a materialized view called gold_store_item_daily in your schema (publix_technology.agentic_ai_training_<yourname>) that:
 > - Aggregates silver_pos_sales by store_number, item_sku, item_gtin, item_name, item_family,
 >   and sales_date (CAST(start_time AS DATE))
 > - Computes: COUNT(DISTINCT transaction_id) as num_transactions, SUM(quantity) as units_sold,
@@ -161,7 +161,7 @@ no manual wiring. Apps built here run as **Serverless Micro Apps** (scale to zer
 
 **Prereqs (a workspace admin does this once, before the workshop):**
 1. Enable the **Governed agentic app-building** preview (Settings → Previews). App Spaces + a **Build** tab then appear in the Apps home page.
-2. Create an **App Space** and add its resources: the **SQL warehouse**, the gold table (`publix_agentic_workshop.medallion.gold_store_item_daily`), and the **"Store Performance" Genie space** (add it as a Genie Agent resource, CAN RUN).
+2. Create an **App Space** and add its resources: the **SQL warehouse**, the gold table (`publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily`), and the **"Store Performance" Genie space** (add it as a Genie Agent resource, CAN RUN).
 3. Grant builders **CAN CREATE APP** on the App Space.
 
 **Build it:** Apps home → **Build** tab → select your App Space → name it "Store Pulse" → paste this prompt:
@@ -169,7 +169,7 @@ no manual wiring. Apps built here run as **Serverless Micro Apps** (scale to zer
 > **🧞 Prompt for Genie App Builder**
 > ```
 > Build a store operations dashboard for a Publix store manager, using the gold table
-> publix_agentic_workshop.medallion.gold_store_item_daily and the "Store Performance"
+> publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily and the "Store Performance"
 > Genie space in this App Space.
 >
 > Layout:
@@ -208,7 +208,7 @@ write-back, embedded Genie). Genie Code can help you draft or extend the backend
 > **🧞 Prompt for Genie Code**
 > ```
 > Set up a FastAPI backend + React frontend for a Databricks App. The backend queries
-> `publix_agentic_workshop.medallion.gold_store_item_daily` via a Databricks SQL warehouse
+> `publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily` via a Databricks SQL warehouse
 > and adds a /api/genie/ask route that forwards a question to a Genie space and returns the
 > answer + SQL. Show me app.yaml (warehouse + genie-space resources), the server routes, and
 > the `databricks sync` + `databricks apps deploy` commands.

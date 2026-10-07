@@ -11,15 +11,16 @@
 # MAGIC managed checkpointing and fault tolerance.
 # MAGIC
 # MAGIC **Per-user exercise:** By the end of this notebook, you will have built a complete medallion pipeline
-# MAGIC in your own catalog: `publix_agentic_<yourname>.medallion.gold_store_item_daily`. Everyone builds
+# MAGIC in your own schema: `publix_technology.agentic_ai_training_<yourname>.gold_store_item_daily`. Everyone builds
 # MAGIC the same structure, each in their own space - compare results with your neighbor at the end!
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Your Catalog
+# MAGIC ## Your Schema
 # MAGIC
-# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC You all share one workspace and the shared `publix_technology` catalog.
+# MAGIC Each participant builds in their OWN schema.
 # MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
 
 # COMMAND ----------
@@ -27,8 +28,9 @@
 dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
 name = dbutils.widgets.get("my_name")
 assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
-CATALOG = f"publix_agentic_{name}"
-print(f"Your catalog: {CATALOG}")
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{name}"
+print(f"Your schema: {CATALOG}.{SCHEMA}")
 
 # COMMAND ----------
 
@@ -57,22 +59,22 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC Your first job is to build TWO streaming tables:
 # MAGIC
 # MAGIC ### silver_pos_sales
-# MAGIC - Reads bronze.pos_sales_raw as a stream (Kafka envelope with nested Basket)
+# MAGIC - Reads pos_sales_raw as a stream (Kafka envelope with nested Basket)
 # MAGIC - Explodes BasketItems array to one row per line item
 # MAGIC - Extracts store, transaction, and item details from the nested structure
 # MAGIC - Drops rows with missing SKU or quantity (quality gate)
 # MAGIC - Clusters by store_number and item_sku for query performance
 # MAGIC
 # MAGIC ### silver_tpr_prices
-# MAGIC - Reads bronze.price_updates_raw as a stream (Kafka envelope with base64 fields)
+# MAGIC - Reads price_updates_raw as a stream (Kafka envelope with base64 fields)
 # MAGIC - Base64-decodes the Selling_Price and Effective_Date fields
 # MAGIC - Types fields as appropriate (timestamp, decimal for price)
 # MAGIC - Clusters by store_number and item_code
 # MAGIC
 # MAGIC > **🧞 Prompt for Genie Code**
 # MAGIC > ```
-# MAGIC > Build a streaming table called silver_pos_sales in publix_agentic_<yourname>.medallion that:
-# MAGIC > - Reads from STREAM(bronze.pos_sales_raw)
+# MAGIC > Build a streaming table called silver_pos_sales in publix_technology.agentic_ai_training_<yourname> that:
+# MAGIC > - Reads from STREAM(pos_sales_raw)
 # MAGIC > - Explodes value.Basket.BasketItems to one row per line item
 # MAGIC > - Extracts: store_number (value.Basket.StoreNumber), transaction_id (value.Basket.TransactionId),
 # MAGIC >   start_time (CAST(value.Basket.StartTime to TIMESTAMP)), item_sku (Sku), item_gtin (Gtin),
@@ -85,8 +87,8 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC
 # MAGIC > **🧞 Prompt for Genie Code** (for silver_tpr_prices)
 # MAGIC > ```
-# MAGIC > Build a streaming table called silver_tpr_prices in publix_agentic_<yourname>.medallion that:
-# MAGIC > - Reads from STREAM(bronze.price_updates_raw)
+# MAGIC > Build a streaming table called silver_tpr_prices in publix_technology.agentic_ai_training_<yourname> that:
+# MAGIC > - Reads from STREAM(price_updates_raw)
 # MAGIC > - Base64-decodes: data.Selling_Price, data.Effective_Date, data.Term_Date, data.Deal_Price
 # MAGIC > - Extracts: event_id (data.Event_Id), item_code (data.Item_Code), store_number (data.Store_Number),
 # MAGIC >   event_timestamp (CAST(UNBASE64(data.Event_Timestamp) AS STRING AS TIMESTAMP)), price_type (data.Price_Type),
@@ -103,8 +105,10 @@ print(f"Your catalog: {CATALOG}")
 # COMMAND ----------
 
 # reference solution - silver_pos_sales layer (explodes nested Basket.BasketItems)
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 spark.sql(f"""
-CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_pos_sales
+CREATE OR REFRESH STREAMING TABLE {CATALOG}.{SCHEMA}.silver_pos_sales
   (CONSTRAINT valid_transaction EXPECT (transaction_id IS NOT NULL AND item_sku IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned, typed POSA sales line items (one row per basket item)."
   CLUSTER BY (store_number, item_sku)
@@ -120,13 +124,15 @@ SELECT
   CAST(item.Quantity AS INT)           AS quantity,
   CAST(item.UnitPrice AS DECIMAL(10, 2))  AS unit_price,
   CAST(item.TotalPrice AS DECIMAL(12, 2)) AS total_price
-FROM STREAM({CATALOG}.bronze.pos_sales_raw)
+FROM STREAM({CATALOG}.{SCHEMA}.pos_sales_raw)
 LATERAL VIEW EXPLODE(value.Basket.BasketItems) exploded AS item
 """)
 
 # reference solution - silver_tpr_prices layer (base64-decodes and types)
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 spark.sql(f"""
-CREATE OR REFRESH STREAMING TABLE {CATALOG}.medallion.silver_tpr_prices
+CREATE OR REFRESH STREAMING TABLE {CATALOG}.{SCHEMA}.silver_tpr_prices
   (CONSTRAINT valid_price EXPECT (event_id IS NOT NULL AND item_code IS NOT NULL) ON VIOLATION DROP ROW)
   COMMENT "Cleaned, typed TPR price events with base64-decoded fields."
   CLUSTER BY (store_number, item_code)
@@ -141,7 +147,7 @@ SELECT
   CAST(CAST(UNBASE64(data.Term_Date) AS STRING) AS DATE)            AS term_date,
   CAST(CAST(UNBASE64(data.Selling_Price) AS STRING) AS DECIMAL(10, 2)) AS selling_price,
   CAST(CAST(UNBASE64(data.Deal_Price) AS STRING) AS DECIMAL(10, 2))    AS deal_price
-FROM STREAM({CATALOG}.bronze.price_updates_raw)
+FROM STREAM({CATALOG}.{SCHEMA}.price_updates_raw)
 """)
 
 # COMMAND ----------
@@ -169,8 +175,10 @@ FROM STREAM({CATALOG}.bronze.price_updates_raw)
 # COMMAND ----------
 
 # reference solution - gold layer (daily store-item aggregation from POSA line items)
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 spark.sql(f"""
-CREATE OR REFRESH MATERIALIZED VIEW {CATALOG}.medallion.gold_store_item_daily
+CREATE OR REFRESH MATERIALIZED VIEW {CATALOG}.{SCHEMA}.gold_store_item_daily
   COMMENT "Daily sales by store, item, and date. Aggregated from POSA line items."
 AS
 SELECT
@@ -187,7 +195,7 @@ SELECT
   MIN(unit_price)                 AS min_unit_price,
   MAX(unit_price)                 AS max_unit_price,
   AVG(unit_price)                 AS avg_unit_price
-FROM {CATALOG}.medallion.silver_pos_sales
+FROM {CATALOG}.{SCHEMA}.silver_pos_sales
 GROUP BY
   store_number, item_sku, item_gtin, item_name, item_family, CAST(start_time AS DATE)
 """)
@@ -203,8 +211,8 @@ GROUP BY
 # MAGIC > **🧞 Prompt for Genie Code**
 # MAGIC > ```
 # MAGIC > Show me the resources section of a Databricks Asset Bundle for a Spark Declarative
-# MAGIC > Pipeline named "publix-medallion" that targets catalog publix_agentic_workshop and
-# MAGIC > schema medallion, with serverless: true, and references the three SQL files:
+# MAGIC > Pipeline named "publix-medallion" that targets catalog publix_technology and
+# MAGIC > schema ${var.schema} (with a variable default agentic_ai_training_workshop), with serverless: true, and references the three SQL files:
 # MAGIC > ../src/pipelines/transformations/silver_pos_sales.sql,
 # MAGIC > ../src/pipelines/transformations/silver_tpr_prices.sql, and
 # MAGIC > ../src/pipelines/transformations/gold_store_item_daily.sql
@@ -258,21 +266,25 @@ GROUP BY
 # COMMAND ----------
 
 # check row counts at each layer
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 print("=== Medallion pipeline row counts ===")
-spark.sql(f"SELECT COUNT(*) as bronze_posa_count FROM {CATALOG}.bronze.pos_sales_raw").show(truncate=False)
-spark.sql(f"SELECT COUNT(*) as bronze_tpr_count FROM {CATALOG}.bronze.price_updates_raw").show(truncate=False)
-spark.sql(f"SELECT COUNT(*) as silver_pos_count FROM {CATALOG}.medallion.silver_pos_sales").show(truncate=False)
-spark.sql(f"SELECT COUNT(*) as silver_tpr_count FROM {CATALOG}.medallion.silver_tpr_prices").show(truncate=False)
-spark.sql(f"SELECT COUNT(*) as gold_count FROM {CATALOG}.medallion.gold_store_item_daily").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as bronze_posa_count FROM {CATALOG}.{SCHEMA}.pos_sales_raw").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as bronze_tpr_count FROM {CATALOG}.{SCHEMA}.price_updates_raw").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as silver_pos_count FROM {CATALOG}.{SCHEMA}.silver_pos_sales").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as silver_tpr_count FROM {CATALOG}.{SCHEMA}.silver_tpr_prices").show(truncate=False)
+spark.sql(f"SELECT COUNT(*) as gold_count FROM {CATALOG}.{SCHEMA}.gold_store_item_daily").show(truncate=False)
 
 # COMMAND ----------
 
 # sample data: see what silver_pos_sales looks like (exploded line items)
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 spark.sql(f"""
 SELECT
   store_number, transaction_id, start_time, item_sku, item_name,
   quantity, unit_price, total_price
-FROM {CATALOG}.medallion.silver_pos_sales
+FROM {CATALOG}.{SCHEMA}.silver_pos_sales
 LIMIT 5
 """).display()
 
@@ -282,7 +294,7 @@ LIMIT 5
 spark.sql(f"""
 SELECT
   event_id, item_code, store_number, selling_price, deal_price, price_type
-FROM {CATALOG}.medallion.silver_tpr_prices
+FROM {CATALOG}.{SCHEMA}.silver_tpr_prices
 LIMIT 5
 """).display()
 
@@ -293,7 +305,7 @@ spark.sql(f"""
 SELECT
   store_number, item_sku, item_name, sales_date,
   units_sold, revenue, avg_unit_price, line_item_count
-FROM {CATALOG}.medallion.gold_store_item_daily
+FROM {CATALOG}.{SCHEMA}.gold_store_item_daily
 ORDER BY sales_date DESC, revenue DESC
 LIMIT 10
 """).display()
@@ -303,15 +315,17 @@ LIMIT 10
 # MAGIC %md
 # MAGIC ## Checkpoint: Compare with Your Neighbor
 # MAGIC
-# MAGIC Each of you built the same pipeline structure in your own catalog. Confirm your row counts
+# MAGIC Each of you built the same pipeline structure in your own schema. Confirm your row counts
 # MAGIC roughly match your neighbor's. If gold has 0 rows, ask an instructor.
 
 # COMMAND ----------
 
 # Quick sanity check
-gold_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.gold_store_item_daily").collect()[0]["cnt"]
-silver_pos_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.silver_pos_sales").collect()[0]["cnt"]
-silver_tpr_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.medallion.silver_tpr_prices").collect()[0]["cnt"]
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
+gold_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.gold_store_item_daily").collect()[0]["cnt"]
+silver_pos_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.silver_pos_sales").collect()[0]["cnt"]
+silver_tpr_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.silver_tpr_prices").collect()[0]["cnt"]
 
 print(f"Your pipeline status:")
 print(f"  Silver POS (line items): {silver_pos_count}")

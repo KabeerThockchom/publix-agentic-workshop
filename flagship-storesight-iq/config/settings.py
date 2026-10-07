@@ -23,8 +23,8 @@ class Settings(BaseSettings):
 
     # === Unity Catalog ===
     catalog_name: str = Field(
-        default="publix_labor_forecast",
-        description="Unity Catalog name",
+        default="publix_technology",
+        description="Shared Unity Catalog name (publix_technology)",
     )
     schema_name: str = Field(
         default="storesight_iq_publix",

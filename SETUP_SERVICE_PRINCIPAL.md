@@ -52,13 +52,13 @@ The publisher's env-var block (see `README.md`) reads these back.
 
 ## Step 4 - Grant the SP on the bronze tables
 
-This happens **after** the catalog and bronze tables exist (it's baked into Notebook 1, Part 4).
-Set `ZEROBUS_SP` to the application id from Step 1 and run that cell, or run this SQL directly:
+This happens **after** the schema and tables exist (it's baked into Notebook 1, Part 4).
+Set `ZEROBUS_SP` to the application id from Step 1 and run that cell, or run this SQL directly (replacing `<yourname>` with your first name):
 
 ```sql
-GRANT USE CATALOG ON CATALOG publix_agentic_workshop TO `<application-id>`;
-GRANT USE SCHEMA  ON SCHEMA  publix_agentic_workshop.bronze TO `<application-id>`;
-GRANT SELECT, MODIFY ON SCHEMA publix_agentic_workshop.bronze TO `<application-id>`;
+GRANT USE CATALOG ON CATALOG publix_technology TO `<application-id>`;
+GRANT USE SCHEMA  ON SCHEMA  publix_technology.agentic_ai_training_<yourname> TO `<application-id>`;
+GRANT SELECT, MODIFY ON SCHEMA publix_technology.agentic_ai_training_<yourname> TO `<application-id>`;
 ```
 
 `MODIFY` = write (INSERT/UPDATE/DELETE). Without this grant the publisher fails with

@@ -13,9 +13,10 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Your Catalog
+# MAGIC ## Your Schema
 # MAGIC
-# MAGIC You all share one workspace, so each participant builds in their OWN catalog.
+# MAGIC You all share one workspace and the shared `publix_technology` catalog.
+# MAGIC Each participant builds in their OWN schema.
 # MAGIC Run the next cell and type your first name in the `my_name` box that appears at the top.
 
 # COMMAND ----------
@@ -23,8 +24,9 @@
 dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
 name = dbutils.widgets.get("my_name")
 assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
-CATALOG = f"publix_agentic_{name}"
-print(f"Your catalog: {CATALOG}")
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{name}"
+print(f"Your schema: {CATALOG}.{SCHEMA}")
 
 # COMMAND ----------
 
@@ -40,7 +42,7 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC
 # MAGIC **For Publix:**
 # MAGIC - POS systems (POSA) and pricing systems (TPR) push events to the Zerobus endpoint
-# MAGIC - Events are validated and written directly to `bronze.pos_sales_raw` (POSA) or `bronze.price_updates_raw` (TPR)
+# MAGIC - Events are validated and written directly to `pos_sales_raw` (POSA) or `price_updates_raw` (TPR)
 # MAGIC - No intermediate Kafka topics, no consumer lag
 # MAGIC
 # MAGIC ---
@@ -54,13 +56,13 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC    Zerobus Endpoint
 # MAGIC           |
 # MAGIC           v (writes with UC lineage)
-# MAGIC    bronze.pos_sales_raw / bronze.price_updates_raw (Delta, Change Data Feed enabled)
+# MAGIC    pos_sales_raw / price_updates_raw (Delta, Change Data Feed enabled)
 # MAGIC           |
 # MAGIC           v (Notebook 4: SDP explodes + decodes)
 # MAGIC    silver_pos_sales (line items) / silver_tpr_prices (decoded prices)
 # MAGIC           |
 # MAGIC           v (aggregates)
-# MAGIC    medallion.gold_store_item_daily (materialized view, queried by Genie)
+# MAGIC    gold_store_item_daily (materialized view, queried by Genie)
 # MAGIC ```
 
 # COMMAND ----------
@@ -90,9 +92,9 @@ print(f"Your catalog: {CATALOG}")
 # MAGIC > - Use the Zerobus Ingest SDK (install: pip install databricks-zerobus-ingest-sdk)
 # MAGIC > - Connect to the Zerobus endpoint: https://<workspace-id>.zerobus.eastus.azuredatabricks.net
 # MAGIC > - Authenticate using a service principal (app_id and secret from Databricks secret scope publix_workshop)
-# MAGIC > - Define two Zerobus streams (use YOUR catalog publix_agentic_<yourname>):
-# MAGIC >   1. publix_agentic_<yourname>.bronze.pos_sales_raw (POSA Kafka envelope with nested value.Basket.BasketItems array)
-# MAGIC >   2. publix_agentic_<yourname>.bronze.price_updates_raw (TPR Kafka envelope with base64-encoded data fields)
+# MAGIC > - Define two Zerobus streams (use the shared catalog publix_technology and YOUR schema agentic_ai_training_<yourname>):
+# MAGIC >   1. publix_technology.agentic_ai_training_<yourname>.pos_sales_raw (POSA Kafka envelope with nested value.Basket.BasketItems array)
+# MAGIC >   2. publix_technology.agentic_ai_training_<yourname>.price_updates_raw (TPR Kafka envelope with base64-encoded data fields)
 # MAGIC > - For 60 seconds, publish synthetic events:
 # MAGIC >   - 3-6 POSA sales per second (nested Basket with 1-8 items, store number, cashier, tenders)
 # MAGIC >   - Occasional TPR price updates (10% chance per second, base64-encode Selling_Price and Effective_Date)
@@ -142,9 +144,10 @@ from uuid import uuid4
 from zerobus.sdk.sync import ZerobusSdk
 from zerobus.sdk.shared import RecordType, StreamConfigurationOptions, TableProperties
 
-CATALOG = os.environ.get("WORKSHOP_CATALOG", "publix_agentic_workshop")
-SALES_TABLE = f"{CATALOG}.bronze.pos_sales_raw"
-PRICE_TABLE = f"{CATALOG}.bronze.price_updates_raw"
+CATALOG = "publix_technology"
+SCHEMA = os.environ.get("WORKSHOP_SCHEMA", "agentic_ai_training_workshop")
+SALES_TABLE = f"{CATALOG}.{SCHEMA}.pos_sales_raw"
+PRICE_TABLE = f"{CATALOG}.{SCHEMA}.price_updates_raw"
 
 SERVER_ENDPOINT = os.environ["ZEROBUS_SERVER_ENDPOINT"]
 WORKSPACE_URL = os.environ["DATABRICKS_WORKSPACE_URL"]
@@ -308,14 +311,14 @@ print(reference_code[:500] + "...\n[See full code above]")
 
 spark.sql(f"""
 SELECT COUNT(*) as sales_events, COUNT(DISTINCT value.Basket.StoreNumber) as stores
-FROM {CATALOG}.bronze.pos_sales_raw
+FROM {CATALOG}.{SCHEMA}.pos_sales_raw
 """).display()
 
 # COMMAND ----------
 
 spark.sql(f"""
 SELECT value.Basket.StoreNumber, value.TicketNumber, value.TransactionDateTime, ARRAY_LENGTH(value.Basket.BasketItems) as num_items
-FROM {CATALOG}.bronze.pos_sales_raw LIMIT 5
+FROM {CATALOG}.{SCHEMA}.pos_sales_raw LIMIT 5
 """).display()
 
 # COMMAND ----------
@@ -340,8 +343,8 @@ FROM {CATALOG}.bronze.pos_sales_raw LIMIT 5
 # MAGIC ## Next: Notebook 4 - Medallion Pipeline
 # MAGIC
 # MAGIC Your bronze tables are now populated (in your own catalog):
-# MAGIC - `bronze.pos_sales_raw` - real-time POSA sales events from Zerobus publisher (Kafka envelope with nested Basket)
-# MAGIC - `bronze.price_updates_raw` - real-time TPR price events from Zerobus (Kafka envelope with base64-encoded fields)
+# MAGIC - `pos_sales_raw` - real-time POSA sales events from Zerobus publisher (Kafka envelope with nested Basket)
+# MAGIC - `price_updates_raw` - real-time TPR price events from Zerobus (Kafka envelope with base64-encoded fields)
 # MAGIC
 # MAGIC **Next step:** Build the medallion pipeline (silver + gold) with Spark Declarative Pipelines.
 # MAGIC The silver layer will explode BasketItems and decode price fields, gold will aggregate daily sales.

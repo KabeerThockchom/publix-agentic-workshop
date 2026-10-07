@@ -4,7 +4,9 @@ env:
   - name: 'DATABRICKS_WAREHOUSE_ID'
     value: '<warehouse-id>'
   - name: 'PUBLIX_CATALOG'
-    value: 'publix_agentic_workshop'
+    value: 'publix_technology'
+  - name: 'PUBLIX_SCHEMA'
+    value: 'agentic_ai_training_workshop'
   - name: 'SERVING_ENDPOINT'
     value: 'databricks-claude-sonnet-5'
   # Genie space is provisioned separately - supply the id here when ready.

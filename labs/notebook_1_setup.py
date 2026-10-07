@@ -21,8 +21,9 @@
 dbutils.widgets.text("my_name", "", "Your first name (lowercase, no spaces)")
 name = dbutils.widgets.get("my_name")
 assert name and " " not in name, "Type your first name (lowercase, no spaces) in the my_name box at the top, then re-run."
-CATALOG = f"publix_agentic_{name}"
-print(f"Your catalog will be: {CATALOG}")
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{name}"
+print(f"Your schema will be: {CATALOG}.{SCHEMA}")
 
 # COMMAND ----------
 
@@ -31,15 +32,18 @@ print(f"Your catalog will be: {CATALOG}")
 
 # COMMAND ----------
 
-# Your own catalog, namespaced by your name so it won't collide with anyone else's.
-spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
-spark.sql(f'CREATE SCHEMA IF NOT EXISTS {CATALOG}.bronze    COMMENT "Raw Auto Loader landing (JSON from Volume)"')
-spark.sql(f'CREATE SCHEMA IF NOT EXISTS {CATALOG}.medallion COMMENT "Silver (streaming) + Gold (materialized)"')
+# publix_technology is the shared workshop catalog — reuse it, never create
+# Create your own schema to hold all layers (bronze raw tables, silver, gold, and the Volume)
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
+spark.sql(f'CREATE SCHEMA IF NOT EXISTS {CATALOG}.{SCHEMA} COMMENT "Raw (bronze), Silver (streaming) + Gold (materialized) layers"')
 
 # Create a Volume for landing Kafka-envelope JSON files
-VOLUME_NAME = f"{CATALOG}.bronze.kafka_landing"
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
+VOLUME_NAME = f"{CATALOG}.{SCHEMA}.kafka_landing"
 spark.sql(f"CREATE VOLUME IF NOT EXISTS {VOLUME_NAME}")
-VOLUME_PATH = f"/Volumes/{CATALOG}/bronze/kafka_landing"
+VOLUME_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/kafka_landing"
 print(f"Volume path: {VOLUME_PATH}")
 
 # COMMAND ----------
@@ -54,8 +58,10 @@ print(f"Volume path: {VOLUME_PATH}")
 
 # POSA Sales events (raw Kafka envelope structure).
 # Auto Loader will ingest JSON files from the sales/ subdirectory.
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 spark.sql(f"""
-CREATE TABLE IF NOT EXISTS {CATALOG}.bronze.pos_sales_raw (
+CREATE TABLE IF NOT EXISTS {CATALOG}.{SCHEMA}.pos_sales_raw (
   partition INT,
   offset BIGINT,
   timestamp BIGINT,
@@ -117,8 +123,10 @@ TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true')
 
 # TPR Price updates (raw Kafka envelope structure with base64-encoded fields).
 # Auto Loader will ingest JSON files from the prices/ subdirectory.
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 spark.sql(f"""
-CREATE TABLE IF NOT EXISTS {CATALOG}.bronze.price_updates_raw (
+CREATE TABLE IF NOT EXISTS {CATALOG}.{SCHEMA}.price_updates_raw (
   key STRING,
   data STRUCT<
     SystemId STRING,
@@ -166,8 +174,9 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 import random
 
-CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
-VOLUME_PATH = f"/Volumes/{CATALOG}/bronze/kafka_landing"
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
+VOLUME_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/kafka_landing"
 
 # Product catalog and store numbers (same as src/setup/publix_data_gen.py)
 PRODUCTS = [
@@ -344,10 +353,12 @@ print(f"Generated {num_sales} sales events and {num_prices} price events to {VOL
 
 from pyspark.sql.functions import input_file_name, current_timestamp
 
-CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
+VOLUME_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/kafka_landing"
 
 # Load POSA sales events via Auto Loader
-sales_path = f"/Volumes/{CATALOG}/bronze/kafka_landing/sales"
+sales_path = f"{VOLUME_PATH}/sales"
 df_sales = (spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format", "json")
@@ -358,12 +369,12 @@ df_sales = (spark.readStream
     .format("delta")
     .mode("append")
     .option("checkpointLocation", f"{VOLUME_PATH}/.checkpoint/sales")
-    .table(f"{CATALOG}.bronze.pos_sales_raw"))
+    .table(f"{CATALOG}.{SCHEMA}.pos_sales_raw"))
 
 print(f"Auto Loader configured for {sales_path}")
 
 # Load TPR price events via Auto Loader
-prices_path = f"/Volumes/{CATALOG}/bronze/kafka_landing/prices"
+prices_path = f"{VOLUME_PATH}/prices"
 df_prices = (spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format", "json")
@@ -374,7 +385,7 @@ df_prices = (spark.readStream
     .format("delta")
     .mode("append")
     .option("checkpointLocation", f"{VOLUME_PATH}/.checkpoint/prices")
-    .table(f"{CATALOG}.bronze.price_updates_raw"))
+    .table(f"{CATALOG}.{SCHEMA}.price_updates_raw"))
 
 print(f"Auto Loader configured for {prices_path}")
 
@@ -394,14 +405,15 @@ time.sleep(5)  # Wait for streams to start
 
 # COMMAND ----------
 
-CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 ZEROBUS_SP = "<zerobus-sp-application-id>"   # e.g. "1b103dc1-cf0a-42ae-94ba-253f9ed2059d"
 
 if ZEROBUS_SP and not ZEROBUS_SP.startswith("<"):
     spark.sql(f"GRANT USE CATALOG ON CATALOG {CATALOG} TO `{ZEROBUS_SP}`")
-    spark.sql(f"GRANT USE SCHEMA  ON SCHEMA  {CATALOG}.bronze TO `{ZEROBUS_SP}`")
-    spark.sql(f"GRANT INSERT ON TABLE {CATALOG}.bronze.pos_sales_raw TO `{ZEROBUS_SP}`")
-    spark.sql(f"GRANT INSERT ON TABLE {CATALOG}.bronze.price_updates_raw TO `{ZEROBUS_SP}`")
+    spark.sql(f"GRANT USE SCHEMA  ON SCHEMA  {CATALOG}.{SCHEMA} TO `{ZEROBUS_SP}`")
+    spark.sql(f"GRANT INSERT ON TABLE {CATALOG}.{SCHEMA}.pos_sales_raw TO `{ZEROBUS_SP}`")
+    spark.sql(f"GRANT INSERT ON TABLE {CATALOG}.{SCHEMA}.price_updates_raw TO `{ZEROBUS_SP}`")
     print(f"Granted permissions to {ZEROBUS_SP}")
 else:
     print("ZEROBUS_SP not configured - skipping. Optional if using Zerobus in Notebook 3.")
@@ -413,37 +425,38 @@ else:
 
 # COMMAND ----------
 
-CATALOG = f"publix_agentic_{dbutils.widgets.get('my_name')}"
+CATALOG = "publix_technology"
+SCHEMA = f"agentic_ai_training_{dbutils.widgets.get('my_name')}"
 
 # Check bronze tables
 print("=== Bronze Tables (Auto Loader from Volume) ===")
-sales_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.bronze.pos_sales_raw").collect()[0]["cnt"]
-prices_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.bronze.price_updates_raw").collect()[0]["cnt"]
+sales_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.pos_sales_raw").collect()[0]["cnt"]
+prices_count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.price_updates_raw").collect()[0]["cnt"]
 
 print(f"POSA Sales events: {sales_count}")
 print(f"TPR Price events: {prices_count}")
 
 print("\nPOSA Sales schema (raw Kafka envelope):")
-spark.sql(f"DESC {CATALOG}.bronze.pos_sales_raw").display()
+spark.sql(f"DESC {CATALOG}.{SCHEMA}.pos_sales_raw").display()
 
 print("\nTPR Prices schema (raw Kafka envelope):")
-spark.sql(f"DESC {CATALOG}.bronze.price_updates_raw").display()
+spark.sql(f"DESC {CATALOG}.{SCHEMA}.price_updates_raw").display()
 
 print("\nSample POSA sales event:")
-spark.sql(f"SELECT value.Basket.StoreNumber, value.TicketNumber, value.TransactionDateTime FROM {CATALOG}.bronze.pos_sales_raw LIMIT 1").display()
+spark.sql(f"SELECT value.Basket.StoreNumber, value.TicketNumber, value.TransactionDateTime FROM {CATALOG}.{SCHEMA}.pos_sales_raw LIMIT 1").display()
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Setup Complete!
 # MAGIC
-# MAGIC You now have (in **your own** catalog):
-# MAGIC - Catalog: `publix_agentic_<yourname>`
-# MAGIC - Volume: `/Volumes/{catalog}/bronze/kafka_landing/` with `sales/` and `prices/` subdirectories
-# MAGIC - Schemas: `bronze` (Auto Loader landing), `medallion` (silver + gold)
-# MAGIC - Tables:
-# MAGIC   - `bronze.pos_sales_raw` - POSA sales events (Kafka envelope with nested Basket)
-# MAGIC   - `bronze.price_updates_raw` - TPR price events (Kafka envelope with base64-encoded fields)
+# MAGIC You now have (in **your own** schema within the shared catalog):
+# MAGIC - Shared Catalog: `publix_technology`
+# MAGIC - Your Schema: `agentic_ai_training_<yourname>`
+# MAGIC - Volume: `/Volumes/publix_technology/agentic_ai_training_<yourname>/kafka_landing/` with `sales/` and `prices/` subdirectories
+# MAGIC - Tables (all in your schema):
+# MAGIC   - `pos_sales_raw` - POSA sales events (Kafka envelope with nested Basket)
+# MAGIC   - `price_updates_raw` - TPR price events (Kafka envelope with base64-encoded fields)
 # MAGIC - Auto Loader streams ingesting JSON from the Volume in real-time
 # MAGIC
 # MAGIC **Next steps:**

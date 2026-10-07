@@ -2,7 +2,7 @@
 
 # Flagship: StoreSight IQ - Genie Code build playbook
 
-We open the workshop with the finished **StoreSight IQ** app (real-time labor forecasting for Publix), then rebuild it **backward**, one layer at a time, with Genie Code. Each step below is a section: a short enablement beat, one **Genie Code prompt** (with the exact contract so it can't drift), and how to verify. Everything lands in your own schema `publix_labor_forecast.storesight_iq_<yourname>` - you set `<yourname>` once in Step 0 and Genie Code carries it through every step.
+We open the workshop with the finished **StoreSight IQ** app (real-time labor forecasting for Publix), then rebuild it **backward**, one layer at a time, with Genie Code. Each step below is a section: a short enablement beat, one **Genie Code prompt** (with the exact contract so it can't drift), and how to verify. Everything lands in your own schema `publix_technology.storesight_iq_<yourname>` - you set `<yourname>` once in Step 0 and Genie Code carries it through every step.
 
 The build order and full data-flow map: see the decomposition plan. Bronze is raw; silver/gold cast + aggregate; the labor model is the hero.
 
@@ -16,7 +16,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 > ```
 > For this entire StoreSight IQ build, my namespace token is <yourname> (lowercase, no spaces, e.g. sai).
 > Use it everywhere, without me repeating it:
-> - every table, view, model, and pipeline goes in catalog publix_labor_forecast, schema storesight_iq_<yourname>
+> - every table, view, model, and pipeline goes in catalog publix_technology, schema storesight_iq_<yourname>
 > - Model Serving endpoints are named storesight-<model>-<yourname>
 > - the Genie space is named "Publix Store Analytics - <yourname>"
 > - the app is named "store-labor-planner-<yourname>"
@@ -33,7 +33,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 
 > **🧞 Genie Code**
 > ```
-> Create a Unity Catalog schema `storesight_iq_<yourname>` in catalog `publix_labor_forecast`, then
+> Create a Unity Catalog schema `storesight_iq_<yourname>` in catalog `publix_technology`, then
 > these tables (USING DELTA), with realistic Publix grocery data:
 > - stores(store_id INT, name STRING, address STRING, city STRING, state STRING, lat DOUBLE,
 >   lng DOUBLE, region STRING, sqft INT, open_date DATE)  -- 24 real Publix stores (FL/Southeast)
@@ -58,7 +58,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 > **🧞 Genie Code**
 > ```
 > Build a Python Zerobus publisher (databricks-zerobus-ingest-sdk) that streams synthetic Publix
-> POS events into `publix_labor_forecast.storesight_iq_<yourname>.pos_events_bronze`.
+> POS events into `publix_technology.storesight_iq_<yourname>.pos_events_bronze`.
 > Table (raw): event_id STRING, store_id INT, event_timestamp STRING, item_id INT, item_name STRING,
 >   category STRING, channel STRING, quantity INT, unit_price DOUBLE, total DOUBLE,
 >   payment_method STRING, ingestion_time STRING. Enable Change Data Feed.
@@ -79,7 +79,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 
 > **🧞 Genie Code**
 > ```
-> Over `publix_labor_forecast.storesight_iq_<yourname>`, create:
+> Over `publix_technology.storesight_iq_<yourname>`, create:
 > - SILVER streaming table `silver_pos` from STREAM(pos_events_bronze): cast event_timestamp->TIMESTAMP
 >   (as event_ts), keep item_id INT, total DOUBLE; EXPECT event_id AND store_id NOT NULL ON VIOLATION
 >   DROP ROW; CLUSTER BY (store_id, item_id).
@@ -104,7 +104,7 @@ The build order and full data-flow map: see the decomposition plan. Bronze is ra
 > Train a labor-optimization model on mv_hourly_demand + labor_schedule: a multi-class classifier
 > predicting recommended staff (2-8) per store-hour from features [store_id, day_of_week, hour_of_day,
 > is_weekend, recent transaction lags]. Use gradient boosting; log with MLflow; register to Unity
-> Catalog as `publix_labor_forecast.storesight_iq_<yourname>.labor_optimizer`; deploy a Model Serving
+> Catalog as `publix_technology.storesight_iq_<yourname>.labor_optimizer`; deploy a Model Serving
 > endpoint `storesight-labor-optimizer-<yourname>`. Report within-±1 accuracy. Handle class imbalance with balanced weights.
 > ```
 > Repeat the pattern for **demand-forecast**, **inventory-predictor**, **prep-scheduler** (each: train ->

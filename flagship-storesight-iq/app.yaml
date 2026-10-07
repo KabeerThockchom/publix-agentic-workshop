@@ -16,7 +16,7 @@ env:
 
   # === Unity Catalog ===
   - name: "CATALOG_NAME"
-    value: "publix_labor_forecast"
+    value: "publix_technology"
   - name: "SCHEMA_NAME"
     value: "storesight_iq_publix"
 

@@ -24,9 +24,10 @@ from uuid import uuid4
 from zerobus.sdk.sync import ZerobusSdk
 from zerobus.sdk.shared import RecordType, StreamConfigurationOptions, TableProperties
 
-CATALOG = os.environ.get("WORKSHOP_CATALOG", "publix_agentic_workshop")
-SALES_TABLE = f"{CATALOG}.bronze.pos_sales_raw"
-PRICE_TABLE = f"{CATALOG}.bronze.price_updates_raw"
+CATALOG = "publix_technology"
+SCHEMA = os.environ.get("WORKSHOP_SCHEMA", "agentic_ai_training_workshop")
+SALES_TABLE = f"{CATALOG}.{SCHEMA}.pos_sales_raw"
+PRICE_TABLE = f"{CATALOG}.{SCHEMA}.price_updates_raw"
 
 SERVER_ENDPOINT = os.environ["ZEROBUS_SERVER_ENDPOINT"]
 WORKSPACE_URL = os.environ["DATABRICKS_WORKSPACE_URL"]
